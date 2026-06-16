@@ -5,10 +5,24 @@ import { supabase } from "./supabase";
 
 // ─── Tokens ────────────────────────────────────────────────────────────────────
 const C = {
-  black:"#080808", dark:"#111", surface:"#181818", card:"#1e1e1e",
-  border:"#2a2a2a", white:"#f5f5f5", dim:"#777",
-  orange:"#f97316", orangeG:"0 0 20px #f9731666",
-  gold:"#fbbf24", neon:"#00f0ff", danger:"#ef4444",
+  black:"#05070b",
+  dark:"#090d14",
+  surface:"#101722",
+  card:"#121a27",
+  card2:"#0c111b",
+  border:"#223044",
+  white:"#f8fafc",
+  dim:"#94a3b8",
+  muted:"#64748b",
+  orange:"#f97316",
+  orange2:"#fb923c",
+  orangeG:"0 0 26px rgba(249,115,22,.42)",
+  gold:"#fbbf24",
+  neon:"#00f0ff",
+  neonG:"0 0 28px rgba(0,240,255,.28)",
+  danger:"#ef4444",
+  danger2:"#fb7185",
+  success:"#22c55e",
 };
 const MONTHS = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const FMT_C = {Reels:C.orange,Stories:"#a855f7","Post Feed":"#0ea5e9",Carrossel:"#22c55e"};
@@ -32,7 +46,18 @@ const OLD_STORAGE_KEYS = [
 const STORAGE_MODE_LABEL = "";
 
 function isSupabaseReady(){
-  return Boolean(supabase);
+  return Boolean(supabase && typeof supabase.from === "function");
+}
+
+function isCloudId(value){
+  return Boolean(value) && !String(value).startsWith("local-");
+}
+
+function newLocalId(){
+  if(typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"){
+    return `local-${crypto.randomUUID()}`;
+  }
+  return `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function safeJsonParse(v){
@@ -44,6 +69,122 @@ function parseSupabaseConteudo(value){
   if(typeof value === "string") return safeJsonParse(value) || {raw:value};
   if(typeof value === "object") return value;
   return null;
+}
+
+function extractPlanFromConteudo(conteudo){
+  if(!conteudo) return null;
+  if(conteudo.strategy || conteudo.calendar || conteudo.reels || conteudo.goals) return conteudo;
+  if(conteudo.lastPlan) return conteudo.lastPlan;
+  if(conteudo.plan) return conteudo.plan;
+  return null;
+}
+
+function cleanClientForSupabase(client={}){
+  const {
+    supabaseId,
+    importedFromSupabase,
+    _storageWarning,
+    ...rest
+  } = client;
+
+  return {
+    ...rest,
+    images:Array.isArray(client.images) ? client.images : [],
+    links:Array.isArray(client.links) ? client.links : [{label:"",url:""}],
+    approvalLinks:Array.isArray(client.approvalLinks) ? client.approvalLinks : [{type:"Vídeo",label:"",url:""}],
+    approvalImages:Array.isArray(client.approvalImages) ? client.approvalImages : [],
+    plans:Array.isArray(client.plans) ? client.plans : [],
+  };
+}
+
+function normalizarPlanoSupabase(row,index=0){
+  const conteudo = parseSupabaseConteudo(row.conteudo);
+  const savedClient = conteudo?.client || conteudo?.cliente || null;
+  const createdAt = row.created_at || new Date().toISOString();
+  const plan = extractPlanFromConteudo(conteudo);
+  const id = row.id ? String(row.id) : `supabase-row-${index}`;
+
+  const baseClient = savedClient && typeof savedClient === "object"
+    ? savedClient
+    : {
+        name:row.cliente || "Cliente sem nome",
+        agency:"Coral Films",
+        niche:row.nicho || "",
+        instagram:"",
+        month:new Date(createdAt).getMonth()+1,
+        year:new Date(createdAt).getFullYear(),
+        notes:row.objetivo || "",
+        extra:"",
+        links:[{label:"",url:""}],
+        images:[],
+        approvalLinks:[{type:"Vídeo",label:"",url:""}],
+        approvalImages:[],
+        plans:[],
+      };
+
+  const planRecord = plan ? {
+    id:`plan-${id}`,
+    createdAt,
+    month:baseClient.month || new Date(createdAt).getMonth()+1,
+    year:baseClient.year || new Date(createdAt).getFullYear(),
+    plan
+  } : null;
+
+  const plans = Array.isArray(baseClient.plans) ? [...baseClient.plans] : [];
+  if(planRecord && !plans.some(p=>String(p.id)===String(planRecord.id))){
+    plans.push(planRecord);
+  }
+
+  return {
+    ...baseClient,
+    id,
+    supabaseId:row.id,
+    name:baseClient.name || row.cliente || "Cliente sem nome",
+    niche:baseClient.niche || row.nicho || "",
+    notes:baseClient.notes || row.objetivo || "",
+    month:baseClient.month || new Date(createdAt).getMonth()+1,
+    year:baseClient.year || new Date(createdAt).getFullYear(),
+    links:Array.isArray(baseClient.links) ? baseClient.links : [{label:"",url:""}],
+    images:Array.isArray(baseClient.images) ? baseClient.images : [],
+    approvalLinks:Array.isArray(baseClient.approvalLinks) ? baseClient.approvalLinks : [{type:"Vídeo",label:"",url:""}],
+    approvalImages:Array.isArray(baseClient.approvalImages) ? baseClient.approvalImages : [],
+    plans,
+    lastPlan:baseClient.lastPlan || plan || null,
+    lastPlanId:baseClient.lastPlanId || planRecord?.id || null,
+    importedFromSupabase:true,
+    createdAt
+  };
+}
+
+function mergeClientes(local=[],cloud=[]){
+  const map = new Map();
+
+  [...local, ...cloud].forEach((client)=>{
+    if(!client) return;
+    const key = client.supabaseId
+      ? `db:${client.supabaseId}`
+      : client.id
+        ? `id:${client.id}`
+        : `name:${String(client.name||"").trim().toLowerCase()}`;
+
+    const prev = map.get(key);
+    if(!prev){
+      map.set(key, client);
+      return;
+    }
+
+    const currentPlans = Array.isArray(prev.plans) ? prev.plans : [];
+    const nextPlans = Array.isArray(client.plans) ? client.plans : [];
+    map.set(key, {
+      ...prev,
+      ...client,
+      plans:[...currentPlans, ...nextPlans].filter((p,idx,arr)=>arr.findIndex(x=>String(x.id)===String(p.id))===idx),
+      lastPlan:client.lastPlan || prev.lastPlan,
+      lastPlanId:client.lastPlanId || prev.lastPlanId,
+    });
+  });
+
+  return Array.from(map.values()).sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
 }
 
 function getLocalClients(k=STORAGE_KEY){
@@ -61,133 +202,110 @@ async function carregarPlanosSupabase(){
   try{
     const { data, error } = await supabase
       .from("planos")
-      .select("cliente,nicho,objetivo,conteudo,created_at")
+      .select("id,cliente,nicho,objetivo,conteudo,created_at")
       .order("created_at", { ascending:false });
 
     if(error){
-      console.log("Erro ao carregar planos do Supabase:", error);
+      console.error("Erro ao carregar planos do Supabase:", error);
       return [];
     }
 
-    const porCliente = new Map();
-
-    (data || []).forEach((row, index)=>{
-      const nome = row.cliente || "Cliente sem nome";
-      const plano = parseSupabaseConteudo(row.conteudo);
-      const createdAt = row.created_at || new Date().toISOString();
-      const idBase = nome.toLowerCase().replace(/[^a-z0-9]+/g,"-") || "cliente";
-
-      if(!porCliente.has(nome)){
-        porCliente.set(nome, {
-          id:`supabase-${idBase}-${index}`,
-          name:nome,
-          agency:"Coral Films",
-          niche:row.nicho || "",
-          instagram:"",
-          month:new Date(createdAt).getMonth()+1,
-          year:new Date(createdAt).getFullYear(),
-          notes:row.objetivo || "",
-          extra:"",
-          links:[{label:"",url:""}],
-          images:[],
-          approvalLinks:[{type:"Vídeo",label:"",url:""}],
-          approvalImages:[],
-          plans:[],
-          lastPlan:null,
-          lastPlanId:null,
-          importedFromSupabase:true
-        });
-      }
-
-      const cliente = porCliente.get(nome);
-      const planId = `supabase-plan-${createdAt}-${index}`;
-      if(plano){
-        const record = {
-          id:planId,
-          createdAt,
-          month:new Date(createdAt).getMonth()+1,
-          year:new Date(createdAt).getFullYear(),
-          plan:plano
-        };
-        cliente.plans.push(record);
-        if(!cliente.lastPlan){
-          cliente.lastPlan = plano;
-          cliente.lastPlanId = planId;
-        }
-      }
-    });
-
-    return Array.from(porCliente.values());
+    return (data || []).map(normalizarPlanoSupabase);
   }catch(error){
-    console.log("Erro inesperado ao carregar planos do Supabase:", error);
+    console.error("Erro inesperado ao carregar planos do Supabase:", error);
     return [];
   }
 }
 
-async function salvarPlanoSupabase(client, plano){
+async function salvarClienteSupabase(client, plano=null){
   if(!isSupabaseReady()){
-    console.log("Supabase não configurado. Plano salvo apenas no navegador.");
+    console.log("Supabase não configurado. Cliente salvo apenas no navegador.");
     return { ok:false, skipped:true };
   }
 
   try{
+    const clientData = cleanClientForSupabase({
+      ...client,
+      lastPlan:plano || client?.lastPlan || null,
+    });
+
     const payload = {
-      cliente: client?.name || "Cliente sem nome",
-      nicho: client?.niche || "",
-      objetivo: plano?.strategy?.objective || client?.notes || "Plano de marketing mensal",
-      conteudo: plano,
-      created_at: new Date().toISOString()
+      cliente: clientData?.name || "Cliente sem nome",
+      nicho: clientData?.niche || "",
+      objetivo: plano?.strategy?.objective || clientData?.notes || "Plano de marketing mensal",
+      conteudo: {
+        __type:"coral_films_client",
+        version:9,
+        client:clientData,
+        lastPlan:plano || clientData?.lastPlan || null
+      }
     };
+
+    const dbId = client?.supabaseId || (client?.importedFromSupabase ? client?.id : null);
+
+    if(dbId && isCloudId(dbId)){
+      const { data, error } = await supabase
+        .from("planos")
+        .update(payload)
+        .eq("id", dbId)
+        .select("id")
+        .single();
+
+      if(error){
+        console.error("Erro ao atualizar cliente no Supabase:", error);
+        return { ok:false, error };
+      }
+
+      console.log("Cliente atualizado no Supabase:", data);
+      return { ok:true, id:data?.id || dbId, data, updated:true };
+    }
 
     const { data, error } = await supabase
       .from("planos")
-      .insert([payload])
-      .select();
+      .insert([{...payload, created_at:new Date().toISOString()}])
+      .select("id")
+      .single();
 
     if(error){
-      console.log("Erro ao salvar plano no Supabase:", error);
+      console.error("Erro ao salvar cliente no Supabase:", error);
       return { ok:false, error };
     }
 
-    console.log("Plano salvo no Supabase com sucesso:", data);
-    return { ok:true, data };
+    console.log("Cliente salvo no Supabase com sucesso:", data);
+    return { ok:true, id:data?.id, data };
   }catch(error){
-    console.log("Erro inesperado ao salvar plano no Supabase:", error);
+    console.error("Erro inesperado ao salvar cliente no Supabase:", error);
     return { ok:false, error };
   }
 }
 
+async function salvarPlanoSupabase(client, plano){
+  return salvarClienteSupabase(client, plano);
+}
+
+async function excluirPlanoSupabase(id){
+  if(!isSupabaseReady() || !id || !isCloudId(id)) return { ok:false, skipped:true };
+
+  const { error } = await supabase
+    .from("planos")
+    .delete()
+    .eq("id", id);
+
+  if(error){
+    console.error("Erro ao deletar:", error);
+    return { ok:false, error };
+  }
+
+  console.log("Cliente deletado");
+  return { ok:true };
+}
 async function dbGet(k=STORAGE_KEY){
   try{
     const local = getLocalClients(k);
     const cloudClients = await carregarPlanosSupabase();
 
     if(cloudClients.length){
-      const merged = [...local];
-
-      cloudClients.forEach(cloudClient=>{
-        const idx = merged.findIndex(c=>
-          String(c.name || "").trim().toLowerCase() === String(cloudClient.name || "").trim().toLowerCase()
-        );
-
-        if(idx >= 0){
-          const current = merged[idx];
-          const currentPlans = Array.isArray(current.plans) ? current.plans : [];
-          const cloudPlans = Array.isArray(cloudClient.plans) ? cloudClient.plans : [];
-          const joinedPlans = [...currentPlans, ...cloudPlans];
-          merged[idx] = {
-            ...cloudClient,
-            ...current,
-            plans:joinedPlans,
-            lastPlan:current.lastPlan || cloudClient.lastPlan,
-            lastPlanId:current.lastPlanId || cloudClient.lastPlanId,
-            importedFromSupabase:cloudClient.importedFromSupabase
-          };
-        }else{
-          merged.push(cloudClient);
-        }
-      });
-
+      const merged = mergeClientes(local, cloudClients);
       try{ window.localStorage?.setItem(STORAGE_KEY, JSON.stringify(merged)); }catch(error){ console.log("Erro ao atualizar cache local:", error); }
       return merged;
     }
@@ -208,7 +326,6 @@ async function dbGet(k=STORAGE_KEY){
     return [];
   }
 }
-
 async function dbSet(k=STORAGE_KEY,v=[]){
   const data = JSON.stringify(v);
 
@@ -528,8 +645,13 @@ function openPremiumPdf(client,plan,mode="plan"){
 
 // ─── OpenRouter API ────────────────────────────────────────────────────────────
 const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY;
+
 async function callOpenRouter(prompt){
   try{
+    if(!OPENROUTER_API_KEY){
+      throw new Error("VITE_OPENROUTER_API_KEY não configurada no .env local ou nas Environment Variables da Vercel.");
+    }
+
     const res = await fetch("https://openrouter.ai/api/v1/chat/completions",{
       method:"POST",
       headers:{
@@ -605,75 +727,116 @@ function Logo({size=120,glow=false}){
   );
 }
 
-// ─── Splash ────────────────────────────────────────────────────────────────────
-function Splash({onDone}){
-  const [p,setP]=useState(0);
+// ─── LoadingScreen ─────────────────────────────────────────────────────────────
+function LoadingScreen({onDone}){
+  const messages = ["Inicializando sistema...","Carregando dados...","Conectando IA..."];
+  const [step,setStep]=useState(0);
+  const [leaving,setLeaving]=useState(false);
+
   useEffect(()=>{
-    const ts=[
-      setTimeout(()=>setP(1),200),
-      setTimeout(()=>setP(2),1100),
-      setTimeout(()=>setP(3),1900),
+    const timers=[
+      setTimeout(()=>setStep(1),780),
+      setTimeout(()=>setStep(2),1580),
+      setTimeout(()=>setLeaving(true),2450),
       setTimeout(onDone,3000),
     ];
-    return()=>ts.forEach(clearTimeout);
-  },[]);
+    return()=>timers.forEach(clearTimeout);
+  },[onDone]);
+
   return(
-    <div style={{
-      position:"fixed",inset:0,
-      background:"radial-gradient(ellipse at center, #0a0a0a 0%, #000 100%)",
-      display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
-      gap:24,zIndex:9999,
-      opacity:p>=3?0:1, transition:"opacity .6s",
-    }}>
-      <style>{`
-        @keyframes scan{0%{top:-4px}100%{top:100vh}}
-        @keyframes fuIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes logoIn{from{opacity:0;transform:scale(.8) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
-        @keyframes lineX{from{width:0;opacity:0}to{width:220px;opacity:1}}
-      `}</style>
-
-      {/* scanline */}
-      <div style={{position:"fixed",inset:0,overflow:"hidden",pointerEvents:"none"}}>
-        <div style={{position:"absolute",left:0,right:0,height:3,background:"linear-gradient(transparent,#00f0ff14,transparent)",animation:"scan 2.8s linear infinite"}}/>
+    <div className={`loading-screen ${leaving ? "is-leaving" : ""}`}>
+      <div className="loading-grid"/>
+      <div className="particle-field">
+        {Array.from({length:24}).map((_,i)=><span key={i} style={{"--i":i}}/>)}
       </div>
 
-      {/* logo — sem fundo preto visível */}
-      <div style={{
-        animation:p>=1?"logoIn .8s cubic-bezier(.22,1,.36,1) forwards":"none",
-        opacity:p>=1?1:0,
-      }}>
-        <Logo size={160} glow={p>=1}/>
-      </div>
+      <div className="loading-core">
+        <div className="loading-logo-ring">
+          <Logo size={126} glow/>
+        </div>
 
-      {/* linha neon */}
-      <div style={{
-        height:1,
-        background:`linear-gradient(to right,transparent,${C.neon},transparent)`,
-        boxShadow:`0 0 10px ${C.neon}`,
-        animation:p>=2?"lineX .5s ease-out forwards":"none",
-        width:p>=2?220:0, opacity:p>=2?1:0, transition:"none",
-      }}/>
+        <div className="loading-copy">
+          <strong>CORAL FILMS</strong>
+          <span>AI CONTENT OPERATING SYSTEM</span>
+        </div>
 
-      {/* texto */}
-      <div style={{textAlign:"center",animation:p>=2?"fuIn .5s ease-out forwards":"none",opacity:p>=2?1:0}}>
-        <div style={{fontSize:11,fontWeight:800,letterSpacing:6,color:C.neon,textTransform:"uppercase",marginBottom:4}}>CORAL FILMS</div>
-        <div style={{fontSize:10,letterSpacing:3,color:C.dim,textTransform:"uppercase"}}>Content Studio</div>
+        <div className="loading-status">
+          {messages.map((msg,i)=>(
+            <div key={msg} className={i===step ? "active" : i<step ? "done" : ""}>
+              <span>{i<step ? "✓" : "•"}</span>{msg}
+            </div>
+          ))}
+        </div>
+
+        <div className="loading-bar">
+          <span style={{width:step===0?"28%":step===1?"62%":leaving?"100%":"86%"}}/>
+        </div>
       </div>
     </div>
   );
 }
 
-// ─── Topbar ────────────────────────────────────────────────────────────────────
-function Topbar({screen,onBack,onNew}){
+// ─── Header ───────────────────────────────────────────────────────────────────
+function Header({screen,onBack,onNew}){
   return(
-    <div style={{background:C.dark,borderBottom:`1px solid ${C.border}`,padding:"0 22px",height:52,display:"flex",alignItems:"center",gap:10,position:"sticky",top:0,zIndex:100}}>
-      <div style={{width:34,height:34,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
-        <img src={CORAL_LOGO} alt="Coral Films" style={{width:"100%",height:"100%",objectFit:"contain",mixBlendMode:"screen",filter:"brightness(1.1)"}}/>
+    <header className="app-header">
+      <div className="header-brand">
+        <div className="header-logo">
+          <img src={CORAL_LOGO} alt="Coral Films"/>
+        </div>
+        <div>
+          <strong>CORAL FILMS</strong>
+          <span>Planning SaaS</span>
+        </div>
       </div>
-      <span style={{fontSize:10,fontWeight:800,letterSpacing:4,color:C.neon,textTransform:"uppercase",flex:1}}>CORAL FILMS</span>
-      {screen!=="list"&&<button style={btn("ghost","sm")} onClick={onBack}>← Voltar</button>}
-      {screen==="list"&&<button style={btn("primary","sm")} onClick={onNew}>+ Novo Cliente</button>}
-    </div>
+
+      <div className="header-actions">
+        {screen!=="list"&&<button className="btn-glass" onClick={onBack}>← Voltar</button>}
+        {screen==="list"&&<button className="btn-new-client" onClick={onNew}>+ Novo Cliente</button>}
+      </div>
+    </header>
+  );
+}
+
+// ─── ClientCard ────────────────────────────────────────────────────────────────
+function ClientCard({plano,index,onGenerate,onOpen,onEdit,onDelete}){
+  const month = MONTHS[(plano.month||1)-1]?.slice(0,3) || "Mês";
+  const hasPlan = plano.lastPlan || ((plano.plans||[]).length>0);
+  const linksCount = (plano.links||[]).filter(l=>l.url).length;
+  const imagesCount = (plano.images||[]).length;
+  const createdAt = plano.createdAt || plano.created_at || null;
+  const dateLabel = createdAt
+    ? new Date(createdAt).toLocaleDateString("pt-BR")
+    : `${month} ${plano.year}`;
+
+  return(
+    <article className="client-card" style={{animationDelay:`${index*.045}s`}}>
+      <div className="client-card-glow"/>
+      <div className="client-card-head">
+        <div>
+          <h3>{plano.name || "Cliente sem nome"}</h3>
+          <span>{plano.niche || "Sem nicho definido"}</span>
+        </div>
+        <div className="client-date">{dateLabel}</div>
+      </div>
+
+      {plano.instagram&&<div className="client-instagram">@{plano.instagram}</div>}
+
+      <div className="client-meta-row">
+        <span>📅 {month} {plano.year}</span>
+        {linksCount>0&&<span>🔗 {linksCount} link(s)</span>}
+        {imagesCount>0&&<span>🖼 {imagesCount} img</span>}
+      </div>
+
+      <div className="client-divider"/>
+
+      <div className="client-actions">
+        <button className="btn-generate" onClick={()=>onGenerate(plano)}>⚡ Gerar Plano</button>
+        {hasPlan&&<button className="btn-icon" title="Abrir plano salvo" onClick={()=>onOpen(plano)}>📄</button>}
+        <button className="btn-icon btn-edit" title="Editar cliente" onClick={()=>onEdit(plano)}>✏️</button>
+        <button className="btn-danger-modern" title="Excluir cliente" onClick={() => onDelete(plano.id)}>🗑</button>
+      </div>
+    </article>
   );
 }
 
@@ -932,6 +1095,8 @@ function CoralFilmsApp(){
   const [genStep,setGenStep]= useState("");
   const [genPct,setGenPct]  = useState(0);
   const [genErr,setGenErr]  = useState("");
+  const [loadingList,setLoadingList] = useState(true);
+  const [feedback,setFeedback] = useState(null);
   const fileRef             = useRef(null);
   const finalFileRef        = useRef(null);
 
@@ -941,11 +1106,26 @@ function CoralFilmsApp(){
            notes:"",extra:"",links:[{label:"",url:""}],images:[],approvalLinks:[{type:"Vídeo",label:"",url:""}],approvalImages:[],plans:[]};
   }
 
+  async function buscarPlanos(){
+    setLoadingList(true);
+    const data = await dbGet(STORAGE_KEY);
+    setClients(Array.isArray(data) ? data : []);
+    setLoadingList(false);
+  }
+
+  function showFeedback(message,type="success"){
+    setFeedback({message,type,nonce:Date.now()});
+  }
+
   useEffect(()=>{
-    dbGet(STORAGE_KEY).then(d=>{
-      if(Array.isArray(d)) setClients(d);
-    });
+    buscarPlanos();
   },[]);
+
+  useEffect(()=>{
+    if(!feedback) return;
+    const timer = setTimeout(()=>setFeedback(null),3200);
+    return()=>clearTimeout(timer);
+  },[feedback]);
 
   const persist = async(list)=>{
     setClients(list);
@@ -960,7 +1140,35 @@ function CoralFilmsApp(){
 
   const startNew  = ()=>{setForm(emptyForm());setEditing(null);setScreen("form");};
   const startEdit = (c)=>{setForm({...c,images:c.images||[],links:c.links||[{label:"",url:""}],approvalLinks:c.approvalLinks||[{type:"Vídeo",label:"",url:""}],approvalImages:c.approvalImages||[],plans:c.plans||[]});setEditing(c.id);setScreen("form");};
-  const delClient = async(id)=>{if(!confirm("Excluir?"))return;await persist(clients.filter(c=>c.id!==id));};
+
+  async function deletarPlano(id) {
+    const confirmacao = confirm("Tem certeza que deseja excluir este cliente?");
+    if (!confirmacao) return;
+
+    const plano = clients.find(c=>String(c.id)===String(id));
+    const dbId = plano?.supabaseId || (plano?.importedFromSupabase ? plano?.id : null);
+
+    if(dbId && isSupabaseReady()){
+      const { error } = await supabase
+        .from("planos")
+        .delete()
+        .eq("id", dbId);
+
+      if (error) {
+        console.error("Erro ao deletar:", error);
+        showFeedback("Erro ao excluir cliente no Supabase.","error");
+        return;
+      } else {
+        console.log("Cliente deletado");
+      }
+    }
+
+    const next = clients.filter(c=>String(c.id)!==String(id));
+    await persist(next);
+    showFeedback("Cliente excluído com sucesso.","success");
+    buscarPlanos(); // atualizar lista automaticamente
+  }
+
   const openSavedPlan = (c)=>{
     const record = (c.plans||[]).find(p=>p.id===c.lastPlanId) || (c.plans||[]).slice(-1)[0];
     const savedPlan = record?.plan || c.lastPlan;
@@ -969,10 +1177,24 @@ function CoralFilmsApp(){
   };
   const saveForm  = async()=>{
     if(!form.name.trim())return alert("Nome obrigatório.");
-    const c={...form,id:editing||String(Date.now())};
-    await persist(editing?clients.map(x=>x.id===editing?c:x):[...clients,c]);
-    setActive(a=>a&&a.id===c.id?c:a);
+
+    let c={
+      ...form,
+      id:editing || form.id || newLocalId(),
+      createdAt:form.createdAt || new Date().toISOString()
+    };
+
+    const cloud = await salvarClienteSupabase(c, c.lastPlan || null);
+    if(cloud?.ok && cloud.id){
+      c = {...c,id:String(cloud.id),supabaseId:cloud.id,importedFromSupabase:true};
+    }
+
+    const exists = clients.some(x=>String(x.id)===String(editing || c.id));
+    await persist(exists?clients.map(x=>String(x.id)===String(editing||c.id)?c:x):[...clients,c]);
+    setActive(a=>a&&String(a.id)===String(c.id)?c:a);
     setScreen("list");
+    showFeedback("Cliente salvo com sucesso.","success");
+    buscarPlanos();
   };
 
   // ── generate ──────────────────────────────────────────────────────────────────
@@ -1061,13 +1283,20 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
       const match = raw.match(/\{[\s\S]*\}/);
       if(!match) throw new Error("JSON não encontrado na resposta");
       const parsed = JSON.parse(match[0]);
-      const planRecord = {id:String(Date.now()),createdAt:new Date().toISOString(),month:client.month,year:client.year,plan:parsed};
-      const updatedClient = {...client,lastPlan:parsed,lastPlanId:planRecord.id,plans:[...(client.plans||[]),planRecord]};
-      const updatedList = clients.some(x=>x.id===client.id)
-        ? clients.map(x=>x.id===client.id?updatedClient:x)
+      const planRecord = {id:`plan-${Date.now()}`,createdAt:new Date().toISOString(),month:client.month,year:client.year,plan:parsed};
+      let updatedClient = {...client,lastPlan:parsed,lastPlanId:planRecord.id,plans:[...(client.plans||[]),planRecord]};
+
+      const cloud = await salvarPlanoSupabase(updatedClient, parsed);
+      if(cloud?.ok && cloud.id){
+        updatedClient = {...updatedClient,id:String(cloud.id),supabaseId:cloud.id,importedFromSupabase:true};
+      }
+
+      const updatedList = clients.some(x=>String(x.id)===String(client.id))
+        ? clients.map(x=>String(x.id)===String(client.id)?updatedClient:x)
         : [...clients,updatedClient];
+
       await persist(updatedList);
-      await salvarPlanoSupabase(updatedClient, parsed);
+      showFeedback("Plano gerado e salvo com sucesso.","success");
       setActive(updatedClient);
       setPlan(parsed);
       setScreen("plan");
@@ -1111,22 +1340,103 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
   const wrap={maxWidth:1100,margin:"0 auto",padding:"28px 20px"};
 
   return(
-    <div style={{minHeight:"100vh",background:C.black,color:C.white,fontFamily:"'Helvetica Neue',Arial,sans-serif"}}>
+    <div className="app-shell">
       <style>{`
-        @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
         @keyframes spin{to{transform:rotate(360deg)}}
-        input:focus,select:focus,textarea:focus{border-color:${C.orange}!important;box-shadow:0 0 0 2px ${C.orange}22!important;outline:none!important}
-        button:hover{opacity:.82!important}
-        ::-webkit-scrollbar{width:5px;background:#111}
-        ::-webkit-scrollbar-thumb{background:${C.orange}55;border-radius:3px}
+        @keyframes pulseGlow{0%,100%{box-shadow:0 0 18px rgba(0,240,255,.16)}50%{box-shadow:0 0 34px rgba(249,115,22,.25),0 0 44px rgba(0,240,255,.18)}}
+        @keyframes gridMove{from{transform:translateY(0)}to{transform:translateY(42px)}}
+        @keyframes floatParticle{0%{transform:translate3d(0,20px,0);opacity:0}25%{opacity:.55}100%{transform:translate3d(calc((var(--i) - 12) * 8px),-110vh,0);opacity:0}}
+        @keyframes statusIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
+        @keyframes toastIn{from{opacity:0;transform:translateY(-12px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+        *{box-sizing:border-box}
+        body{margin:0;background:${C.black};}
+        input:focus,select:focus,textarea:focus{border-color:${C.neon}!important;box-shadow:0 0 0 3px rgba(0,240,255,.12),0 0 24px rgba(0,240,255,.08)!important;outline:none!important}
+        button{will-change:transform,box-shadow,background;transition:transform .18s ease,box-shadow .18s ease,background .18s ease,border-color .18s ease,opacity .18s ease}
+        button:hover{transform:translateY(-1px)}
+        button:active{transform:translateY(0) scale(.98)}
+        ::-webkit-scrollbar{width:7px;background:#070b12}
+        ::-webkit-scrollbar-thumb{background:linear-gradient(${C.orange},${C.neon});border-radius:999px}
+
+        .app-shell{min-height:100vh;background:
+          radial-gradient(circle at 12% 0%,rgba(249,115,22,.14),transparent 32%),
+          radial-gradient(circle at 88% 8%,rgba(0,240,255,.12),transparent 30%),
+          linear-gradient(180deg,#05070b 0%,#080d15 48%,#05070b 100%);
+          color:${C.white};font-family:'Inter','Helvetica Neue',Arial,sans-serif;animation:fadeIn .55s ease-out}
+        .app-shell::before{content:"";position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:44px 44px;mask-image:linear-gradient(to bottom,rgba(0,0,0,.75),transparent 80%);}
+
+        .app-header{position:sticky;top:0;z-index:100;height:68px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;background:linear-gradient(135deg,rgba(11,18,32,.72),rgba(5,7,11,.46));backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid rgba(0,240,255,.22);box-shadow:0 14px 45px rgba(0,0,0,.32),0 0 28px rgba(0,240,255,.08)}
+        .app-header::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:linear-gradient(90deg,transparent,${C.orange},${C.neon},transparent);box-shadow:0 0 18px rgba(0,240,255,.65)}
+        .header-brand{display:flex;align-items:center;gap:12px;min-width:0}
+        .header-logo{width:42px;height:42px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(249,115,22,.12),rgba(0,240,255,.08));border:1px solid rgba(255,255,255,.10);box-shadow:0 0 22px rgba(0,240,255,.12);overflow:hidden}
+        .header-logo img{width:100%;height:100%;object-fit:contain;mix-blend-mode:screen;filter:brightness(1.12)}
+        .header-brand strong{display:block;font-size:12px;letter-spacing:4px;color:${C.white};font-weight:900}
+        .header-brand span{display:block;margin-top:3px;font-size:10px;letter-spacing:2px;color:${C.dim};text-transform:uppercase}
+        .header-actions{display:flex;gap:10px;align-items:center}
+
+        .btn-new-client,.btn-generate{border:0;cursor:pointer;color:#090909;font-weight:950;text-transform:uppercase;letter-spacing:1.4px;background:linear-gradient(135deg,${C.orange},${C.orange2});box-shadow:0 0 22px rgba(249,115,22,.35),inset 0 1px 0 rgba(255,255,255,.28)}
+        .btn-new-client{border-radius:999px;padding:11px 18px;font-size:12px}
+        .btn-new-client:hover,.btn-generate:hover{transform:translateY(-2px) scale(1.025);box-shadow:0 0 30px rgba(249,115,22,.52),0 0 20px rgba(0,240,255,.10)}
+        .btn-glass,.btn-icon,.btn-danger-modern{cursor:pointer;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.045);color:${C.white};backdrop-filter:blur(10px)}
+        .btn-glass{border-radius:999px;padding:10px 15px;font-size:12px;font-weight:850;letter-spacing:1px;text-transform:uppercase}
+        .btn-glass:hover,.btn-icon:hover{border-color:rgba(0,240,255,.42);box-shadow:0 0 18px rgba(0,240,255,.16)}
+        .btn-generate{flex:1;border-radius:12px;padding:11px 12px;font-size:11px}
+        .btn-icon,.btn-danger-modern{width:42px;min-width:42px;height:42px;border-radius:12px;font-size:15px;display:inline-flex;align-items:center;justify-content:center}
+        .btn-edit:hover{border-color:rgba(0,240,255,.45);color:${C.neon}}
+        .btn-danger-modern{border-color:rgba(239,68,68,.38);background:linear-gradient(135deg,rgba(239,68,68,.16),rgba(127,29,29,.12));color:#fecaca}
+        .btn-danger-modern:hover{border-color:rgba(251,113,133,.85);background:linear-gradient(135deg,rgba(239,68,68,.34),rgba(127,29,29,.22));box-shadow:0 0 24px rgba(239,68,68,.36);color:#fff}
+
+        .client-card{position:relative;overflow:hidden;background:linear-gradient(145deg,rgba(18,26,39,.96),rgba(7,11,18,.96));border:1px solid rgba(255,255,255,.08);border-radius:22px;padding:20px;display:flex;flex-direction:column;gap:14px;box-shadow:0 18px 55px rgba(0,0,0,.22);animation:fadeIn .36s ease-out both;transition:transform .22s ease,border-color .22s ease,box-shadow .22s ease}
+        .client-card::before{content:"";position:absolute;inset:0;background:linear-gradient(135deg,rgba(249,115,22,.10),transparent 36%,rgba(0,240,255,.075));opacity:.72;pointer-events:none}
+        .client-card-glow{position:absolute;right:-65px;top:-65px;width:150px;height:150px;background:${C.neon};opacity:.08;filter:blur(20px);border-radius:999px}
+        .client-card:hover{transform:translateY(-5px) scale(1.015);border-color:rgba(0,240,255,.30);box-shadow:0 24px 70px rgba(0,0,0,.36),0 0 34px rgba(0,240,255,.10)}
+        .client-card-head,.client-meta-row,.client-actions,.client-instagram,.client-divider{position:relative;z-index:1}
+        .client-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+        .client-card h3{font-size:18px;line-height:1.18;font-weight:950;letter-spacing:-.55px;margin:0 0 6px;color:${C.white}}
+        .client-card-head span{font-size:10px;color:${C.orange};font-weight:900;letter-spacing:2px;text-transform:uppercase}
+        .client-date{white-space:nowrap;border:1px solid rgba(0,240,255,.22);background:rgba(0,240,255,.06);color:${C.neon};font-size:10px;font-weight:850;letter-spacing:1px;text-transform:uppercase;border-radius:999px;padding:7px 10px}
+        .client-instagram{font-size:12px;color:${C.dim}}
+        .client-meta-row{display:flex;gap:8px;flex-wrap:wrap;color:${C.dim};font-size:11px}
+        .client-meta-row span{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);border-radius:999px;padding:6px 9px}
+        .client-divider{height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.13),transparent)}
+        .client-actions{display:flex;gap:9px;flex-wrap:nowrap}
+
+        .loading-screen{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;overflow:hidden;background:radial-gradient(circle at 50% 20%,rgba(0,240,255,.12),transparent 30%),radial-gradient(circle at 70% 75%,rgba(249,115,22,.12),transparent 28%),#020409;transition:opacity .55s ease,filter .55s ease}
+        .loading-screen.is-leaving{opacity:0;filter:blur(10px)}
+        .loading-grid{position:absolute;inset:-80px;background-image:linear-gradient(rgba(0,240,255,.11) 1px,transparent 1px),linear-gradient(90deg,rgba(249,115,22,.10) 1px,transparent 1px);background-size:42px 42px;transform-origin:center;animation:gridMove 1.4s linear infinite;mask-image:radial-gradient(circle,rgba(0,0,0,.9),transparent 72%)}
+        .particle-field span{position:absolute;bottom:-30px;left:calc((var(--i) * 4.2%) + 2%);width:3px;height:3px;border-radius:999px;background:${C.neon};box-shadow:0 0 12px ${C.neon};animation:floatParticle calc(3s + (var(--i) * .08s)) linear infinite;animation-delay:calc(var(--i) * -.18s)}
+        .loading-core{position:relative;z-index:1;width:min(92vw,420px);display:flex;flex-direction:column;align-items:center;gap:18px;padding:34px 28px;border-radius:28px;background:linear-gradient(145deg,rgba(15,23,42,.72),rgba(2,6,23,.38));border:1px solid rgba(255,255,255,.10);backdrop-filter:blur(18px);box-shadow:0 25px 80px rgba(0,0,0,.45);animation:pulseGlow 2.4s ease-in-out infinite}
+        .loading-logo-ring{width:154px;height:154px;border-radius:999px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(0,240,255,.20);background:radial-gradient(circle,rgba(0,240,255,.08),transparent 62%)}
+        .loading-copy{text-align:center}
+        .loading-copy strong{display:block;font-size:12px;letter-spacing:5px;font-weight:950;color:${C.white}}
+        .loading-copy span{display:block;margin-top:6px;font-size:10px;letter-spacing:2.5px;color:${C.dim}}
+        .loading-status{width:100%;display:grid;gap:8px;margin-top:4px}
+        .loading-status div{display:flex;align-items:center;gap:9px;color:${C.muted};font-size:12px;letter-spacing:.6px;opacity:.7}
+        .loading-status div.active{color:${C.neon};opacity:1;animation:statusIn .28s ease-out}
+        .loading-status div.done{color:${C.success};opacity:.95}
+        .loading-status span{width:18px;display:inline-flex;justify-content:center;font-weight:900}
+        .loading-bar{width:100%;height:5px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;border:1px solid rgba(255,255,255,.07)}
+        .loading-bar span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,${C.orange},${C.neon});box-shadow:0 0 20px rgba(0,240,255,.45);transition:width .7s cubic-bezier(.22,1,.36,1)}
+
+        .toast{position:fixed;top:84px;right:22px;z-index:2000;max-width:min(380px,calc(100vw - 44px));border-radius:16px;padding:13px 16px;font-size:13px;font-weight:800;line-height:1.45;animation:toastIn .22s ease-out;border:1px solid rgba(34,197,94,.35);background:linear-gradient(135deg,rgba(22,101,52,.92),rgba(5,46,22,.86));box-shadow:0 16px 45px rgba(0,0,0,.35),0 0 28px rgba(34,197,94,.16)}
+        .toast.error{border-color:rgba(239,68,68,.45);background:linear-gradient(135deg,rgba(127,29,29,.95),rgba(69,10,10,.88));box-shadow:0 16px 45px rgba(0,0,0,.35),0 0 28px rgba(239,68,68,.18)}
+
         @media(max-width:720px){
           body{overflow-x:hidden}
+          .app-header{height:auto;min-height:66px;padding:12px 14px}
+          .header-brand strong{font-size:11px;letter-spacing:3px}
+          .header-brand span{font-size:9px}
+          .btn-new-client,.btn-glass{padding:10px 12px;font-size:11px}
+          .client-actions{flex-wrap:wrap}
+          .btn-generate{min-width:100%}
           button{min-height:38px}
         }
       `}</style>
 
-      {splash && <Splash onDone={()=>setSplash(false)}/>}
-      <Topbar screen={screen} onBack={()=>setScreen("list")} onNew={startNew}/>
+      {splash && <LoadingScreen onDone={()=>setSplash(false)}/>}
+      <Header screen={screen} onBack={()=>setScreen("list")} onNew={startNew}/>
+      {feedback && <div className={`toast ${feedback.type==="error" ? "error" : ""}`}>{feedback.message}</div>}
 
       {/* ── LIST ── */}
       {screen==="list"&&(
@@ -1137,38 +1447,29 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
             <div style={{width:44,height:3,background:C.orange,marginTop:10,borderRadius:1,boxShadow:C.orangeG}}/>
             {STORAGE_MODE_LABEL && <div style={{marginTop:10,fontSize:11,color:C.dim,lineHeight:1.6}}>{STORAGE_MODE_LABEL}</div>}
           </div>
-          {clients.length===0?(
+          {loadingList?(
+            <div style={{...ncrd,textAlign:"center",padding:46,animation:"fadeIn .4s ease-out"}}>
+              <div style={{fontSize:32,marginBottom:12}}>⚙️</div>
+              <p style={{color:C.dim,margin:0,fontSize:14}}>Carregando clientes...</p>
+            </div>
+          ):clients.length===0?(
             <div style={{...ocrd,textAlign:"center",padding:56,borderStyle:"dashed",animation:"fadeIn .4s ease-out"}}>
               <div style={{fontSize:44,marginBottom:14}}>📋</div>
               <p style={{color:C.dim,marginBottom:22,fontSize:14}}>Nenhum cliente ainda.</p>
-              <button style={btn("primary","lg")} onClick={startNew}>+ Criar Primeiro Cliente</button>
+              <button className="btn-new-client" onClick={startNew}>+ Criar Primeiro Cliente</button>
             </div>
           ):(
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(290px,1fr))",gap:14}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(310px,1fr))",gap:18}}>
               {clients.map((c,ci)=>(
-                <div key={c.id} style={{...card,display:"flex",flexDirection:"column",gap:12,animation:`fadeIn .3s ease-out ${ci*.05}s both`}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                    <div>
-                      <div style={{fontSize:16,fontWeight:900,marginBottom:3}}>{c.name}</div>
-                      <div style={{fontSize:10,color:C.orange,fontWeight:700,letterSpacing:2,textTransform:"uppercase"}}>{c.niche||"Sem nicho"}</div>
-                    </div>
-                    <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:4,padding:"4px 9px",fontSize:10,color:C.dim,fontWeight:700,letterSpacing:1,textTransform:"uppercase",whiteSpace:"nowrap"}}>
-                      {MONTHS[(c.month||1)-1]?.slice(0,3)} {c.year}
-                    </div>
-                  </div>
-                  {c.instagram&&<div style={{fontSize:12,color:C.dim}}>@{c.instagram}</div>}
-                  <div style={{display:"flex",gap:10,fontSize:11,color:C.dim}}>
-                    {(c.links||[]).filter(l=>l.url).length>0&&<span>🔗 {c.links.filter(l=>l.url).length} link(s)</span>}
-                    {(c.images||[]).length>0&&<span>🖼 {c.images.length} img</span>}
-                  </div>
-                  <div style={{height:1,background:C.border}}/>
-                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                    <button style={{...btn("primary"),flex:1,padding:"9px 0"}} onClick={()=>generate(c)}>⚡ Gerar Plano</button>
-                    {(c.lastPlan||((c.plans||[]).length>0))&&<button style={{...btn("ghost","sm"),padding:"9px 13px"}} onClick={()=>openSavedPlan(c)}>📄</button>}
-                    <button style={{...btn("neon","sm"),padding:"9px 13px"}} onClick={()=>startEdit(c)}>✏️</button>
-                    <button style={{...btn("danger","sm"),padding:"9px 13px"}} onClick={()=>delClient(c.id)}>🗑</button>
-                  </div>
-                </div>
+                <ClientCard
+                  key={c.id}
+                  plano={c}
+                  index={ci}
+                  onGenerate={generate}
+                  onOpen={openSavedPlan}
+                  onEdit={startEdit}
+                  onDelete={deletarPlano}
+                />
               ))}
             </div>
           )}
