@@ -3,6 +3,9 @@ const CORAL_LOGO = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAQDA
 import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabase";
 
+const APP_NAME = "Coral Hub";
+const APP_SUBTITLE = "Sistema Inteligente de Gestão da Coral Films";
+
 // ─── Tokens ────────────────────────────────────────────────────────────────────
 const C = {
   black:"#05070b",
@@ -44,6 +47,670 @@ const OLD_STORAGE_KEYS = [
 // Deixe vazio para não mostrar aviso na tela inicial.
 // Se quiser mostrar status depois, você pode trocar por uma frase.
 const STORAGE_MODE_LABEL = "";
+
+const COMERCIAL_STORAGE_KEY = "coral_hub_comercial_v2";
+
+const LEAD_STATUS_OPTIONS = [
+  "Novo",
+  "Primeiro Contato",
+  "Reunião Agendada",
+  "Proposta Enviada",
+  "Negociação",
+  "Fechado",
+  "Perdido",
+  "Cliente Ativo"
+];
+
+const PROPOSAL_STATUS_OPTIONS = ["Rascunho","Enviada","Em negociação","Aprovada","Convertida","Recusada"];
+const SERVICE_TYPE_OPTIONS = ["Mensal","Implementação","Projeto"];
+
+const DEFAULT_SERVICES = [
+  {
+    seedKey:"captacao-de-video",
+    nome:"Captação de Vídeo",
+    categoria:"Audiovisual",
+    descricao:"Captação profissional de vídeos com planejamento, direção de cena, equipamentos adequados e produção audiovisual de alta qualidade.",
+    valorPadrao:350,
+    tipo:"Mensal",
+    ativo:true,
+    icone:"🎥",
+    ordemExibicao:1
+  },
+  {
+    seedKey:"edicao-de-video",
+    nome:"Edição de Vídeo",
+    categoria:"Audiovisual",
+    descricao:"Edição profissional, correção de cor, tratamento de áudio, legendas e exportação otimizada para redes sociais.",
+    valorPadrao:300,
+    tipo:"Mensal",
+    ativo:true,
+    icone:"✂️",
+    ordemExibicao:2
+  },
+  {
+    seedKey:"gestao-de-redes-sociais",
+    nome:"Gestão de Redes Sociais",
+    categoria:"Gestão",
+    descricao:"Planejamento estratégico, calendário de publicações, acompanhamento e gestão dos perfis.",
+    valorPadrao:450,
+    tipo:"Mensal",
+    ativo:true,
+    icone:"📱",
+    ordemExibicao:3
+  },
+  {
+    seedKey:"artes-digitais-e-impressao",
+    nome:"Artes Digitais e Impressão",
+    categoria:"Design",
+    descricao:"Criação de artes para redes sociais e materiais gráficos impressos.",
+    valorPadrao:250,
+    tipo:"Mensal",
+    ativo:true,
+    icone:"🎨",
+    ordemExibicao:4
+  },
+  {
+    seedKey:"producao-de-conteudo",
+    nome:"Produção de Conteúdo",
+    categoria:"Conteúdo",
+    descricao:"Planejamento de conteúdos, campanhas, estratégias e desenvolvimento de ideias.",
+    valorPadrao:300,
+    tipo:"Mensal",
+    ativo:true,
+    icone:"🧠",
+    ordemExibicao:5
+  },
+  {
+    seedKey:"roteirizacao",
+    nome:"Roteirização",
+    categoria:"Conteúdo",
+    descricao:"Desenvolvimento de roteiros para vídeos institucionais, Reels e campanhas.",
+    valorPadrao:180,
+    tipo:"Mensal",
+    ativo:true,
+    icone:"📝",
+    ordemExibicao:6
+  },
+  {
+    seedKey:"identidade-visual",
+    nome:"Identidade Visual",
+    categoria:"Branding",
+    descricao:"Desenvolvimento completo da identidade visual da empresa.",
+    valorPadrao:900,
+    tipo:"Implementação",
+    ativo:true,
+    icone:"💎",
+    ordemExibicao:7
+  },
+  {
+    seedKey:"cobertura-de-eventos",
+    nome:"Cobertura de Eventos",
+    categoria:"Eventos",
+    descricao:"Cobertura profissional de eventos com fotografia e vídeo.",
+    valorPadrao:1200,
+    tipo:"Projeto",
+    ativo:true,
+    icone:"📸",
+    ordemExibicao:8
+  }
+];
+
+function emptyLeadForm(){
+  return {
+    id:null,
+    empresa:"",
+    responsavel:"",
+    telefone:"",
+    whatsapp:"",
+    email:"",
+    instagram:"",
+    cidade:"",
+    segmento:"",
+    origemLead:"",
+    observacoes:"",
+    status:"Novo"
+  };
+}
+
+function emptyServiceForm(){
+  return {
+    id:null,
+    nome:"",
+    categoria:"",
+    descricao:"",
+    valorPadrao:0,
+    tipo:"Mensal",
+    ativo:true,
+    icone:"",
+    ordemExibicao:1
+  };
+}
+
+function emptyProposalForm(){
+  return {
+    id:null,
+    leadId:"",
+    empresa:"",
+    responsavel:"",
+    telefone:"",
+    whatsapp:"",
+    email:"",
+    instagram:"",
+    cidade:"",
+    segmento:"",
+    objetivos:"",
+    condicoesPagamento:"Entrada de 50% para início do projeto e saldo conforme cronograma aprovado. Serviços mensais são cobrados de forma recorrente.",
+    proximosPassos:"1. Aprovação da proposta. 2. Alinhamento estratégico. 3. Início da produção. 4. Entrega e acompanhamento.",
+    status:"Rascunho",
+    descontoValor:0,
+    descontoPercentual:0,
+    items:[]
+  };
+}
+
+function moneyBR(value){
+  const n = Number(value || 0);
+  return n.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+}
+
+function toNumber(value){
+  if(typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const cleaned = String(value ?? "").replace(/\./g,"").replace(",",".").replace(/[^\d.-]/g,"");
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function normalizeCommercialStatus(value){
+  return LEAD_STATUS_OPTIONS.includes(value) ? value : "Novo";
+}
+
+function normalizeLead(row={}){
+  return {
+    id:String(row.id || row.supabaseId || newLocalId()),
+    supabaseId:row.supabaseId || (row.id && isCloudId(row.id) ? row.id : null),
+    empresa:row.empresa || "",
+    responsavel:row.responsavel || "",
+    telefone:row.telefone || "",
+    whatsapp:row.whatsapp || "",
+    email:row.email || "",
+    instagram:row.instagram || "",
+    cidade:row.cidade || "",
+    segmento:row.segmento || "",
+    origemLead:row.origemLead || row.origem_lead || "",
+    observacoes:row.observacoes || "",
+    status:normalizeCommercialStatus(row.status),
+    createdAt:row.createdAt || row.created_at || new Date().toISOString(),
+    updatedAt:row.updatedAt || row.updated_at || new Date().toISOString()
+  };
+}
+
+function normalizeService(row={}){
+  return {
+    id:String(row.id || row.supabaseId || row.seedKey || newLocalId()),
+    supabaseId:row.supabaseId || (row.id && isCloudId(row.id) ? row.id : null),
+    seedKey:row.seedKey || row.seed_key || "",
+    nome:row.nome || "",
+    categoria:row.categoria || "",
+    descricao:row.descricao || "",
+    valorPadrao:toNumber(row.valorPadrao ?? row.valor_padrao),
+    tipo:SERVICE_TYPE_OPTIONS.includes(row.tipo) ? row.tipo : "Mensal",
+    ativo:typeof row.ativo === "boolean" ? row.ativo : true,
+    icone:row.icone || "",
+    ordemExibicao:Number(row.ordemExibicao ?? row.ordem_exibicao ?? 1),
+    createdAt:row.createdAt || row.created_at || new Date().toISOString(),
+    updatedAt:row.updatedAt || row.updated_at || new Date().toISOString()
+  };
+}
+
+function normalizeProposal(row={}){
+  const snapshot = row.leadSnapshot || row.lead_snapshot || {};
+  return {
+    id:String(row.id || row.supabaseId || newLocalId()),
+    supabaseId:row.supabaseId || (row.id && isCloudId(row.id) ? row.id : null),
+    leadId:String(row.leadId || row.lead_id || snapshot.id || ""),
+    leadSupabaseId:row.leadSupabaseId || row.lead_id || null,
+    empresa:row.empresa || snapshot.empresa || "",
+    responsavel:row.responsavel || snapshot.responsavel || "",
+    telefone:row.telefone || snapshot.telefone || "",
+    whatsapp:row.whatsapp || snapshot.whatsapp || "",
+    email:row.email || snapshot.email || "",
+    instagram:row.instagram || snapshot.instagram || "",
+    cidade:row.cidade || snapshot.cidade || "",
+    segmento:row.segmento || snapshot.segmento || "",
+    objetivos:row.objetivos || "",
+    condicoesPagamento:row.condicoesPagamento || row.condicoes_pagamento || "",
+    proximosPassos:row.proximosPassos || row.proximos_passos || "",
+    status:PROPOSAL_STATUS_OPTIONS.includes(row.status) ? row.status : "Rascunho",
+    descontoValor:toNumber(row.descontoValor ?? row.desconto_valor),
+    descontoPercentual:toNumber(row.descontoPercentual ?? row.desconto_percentual),
+    valorTabela:toNumber(row.valorTabela ?? row.valor_tabela),
+    descontoTotal:toNumber(row.descontoTotal ?? row.desconto_total),
+    valorFinal:toNumber(row.valorFinal ?? row.valor_final),
+    createdAt:row.createdAt || row.created_at || new Date().toISOString(),
+    updatedAt:row.updatedAt || row.updated_at || new Date().toISOString()
+  };
+}
+
+function normalizeProposalItem(row={}){
+  return {
+    id:String(row.id || newLocalId()),
+    supabaseId:row.supabaseId || (row.id && isCloudId(row.id) ? row.id : null),
+    proposalId:String(row.proposalId || row.proposta_id || row.proposal_id || ""),
+    serviceId:String(row.serviceId || row.servico_id || row.service_id || ""),
+    serviceName:row.serviceName || row.service_name || row.nome_servico || "",
+    categoria:row.categoria || "",
+    descricao:row.descricao || "",
+    tipo:SERVICE_TYPE_OPTIONS.includes(row.tipo) ? row.tipo : "Mensal",
+    quantidade:Number(row.quantidade || 1),
+    valorUnitario:toNumber(row.valorUnitario ?? row.valor_unitario),
+    ordem:Number(row.ordem || 1),
+    createdAt:row.createdAt || row.created_at || new Date().toISOString()
+  };
+}
+
+function proposalTotals(items=[],descontoValor=0,descontoPercentual=0){
+  const normalized = (items||[]).map(item=>({
+    ...item,
+    quantidade:Number(item.quantidade || 1),
+    valorUnitario:toNumber(item.valorUnitario)
+  }));
+  const valorTabela = normalized.reduce((sum,item)=>sum + (item.valorUnitario * item.quantidade),0);
+  const valorImplementacao = normalized.filter(i=>i.tipo==="Implementação").reduce((sum,item)=>sum + (item.valorUnitario * item.quantidade),0);
+  const valorMensal = normalized.filter(i=>i.tipo==="Mensal").reduce((sum,item)=>sum + (item.valorUnitario * item.quantidade),0);
+  const valorProjeto = normalized.filter(i=>i.tipo==="Projeto").reduce((sum,item)=>sum + (item.valorUnitario * item.quantidade),0);
+  const percentual = Math.max(0,toNumber(descontoPercentual));
+  const descontoPercentualValor = valorTabela * (percentual / 100);
+  const descontoTotal = Math.min(valorTabela, Math.max(0,toNumber(descontoValor)) + descontoPercentualValor);
+  const valorFinal = Math.max(0, valorTabela - descontoTotal);
+  return {valorTabela,valorImplementacao,valorMensal,valorProjeto,descontoPercentualValor,descontoTotal,valorFinal};
+}
+
+function localCommercialData(){
+  const raw = safeJsonParse(window.localStorage?.getItem(COMERCIAL_STORAGE_KEY));
+  return {
+    leads:Array.isArray(raw?.leads) ? raw.leads.map(normalizeLead) : [],
+    services:Array.isArray(raw?.services) ? raw.services.map(normalizeService) : [],
+    proposals:Array.isArray(raw?.proposals) ? raw.proposals.map(normalizeProposal) : [],
+    items:Array.isArray(raw?.items) ? raw.items.map(normalizeProposalItem) : []
+  };
+}
+
+async function dbGetCommercial(){
+  const local = localCommercialData();
+  if(!isSupabaseReady()) return ensureDefaultCommercialServices(local);
+
+  try{
+    const [leadsRes,servicesRes,proposalsRes,itemsRes] = await Promise.all([
+      supabase.from("coral_leads").select("*").order("created_at",{ascending:false}),
+      supabase.from("coral_services").select("*").order("ordem_exibicao",{ascending:true}),
+      supabase.from("coral_propostas").select("*").order("created_at",{ascending:false}),
+      supabase.from("coral_proposta_itens").select("*").order("ordem",{ascending:true})
+    ]);
+
+    const hasError = [leadsRes,servicesRes,proposalsRes,itemsRes].some(r=>r.error);
+    if(hasError){
+      console.warn("Módulo Comercial usando cache local. Execute o SQL v2.0 no Supabase para ativar a nuvem.", {
+        leads:leadsRes.error,
+        services:servicesRes.error,
+        proposals:proposalsRes.error,
+        items:itemsRes.error
+      });
+      return ensureDefaultCommercialServices(local);
+    }
+
+    const cloud = {
+      leads:(leadsRes.data||[]).map(normalizeLead),
+      services:(servicesRes.data||[]).map(normalizeService),
+      proposals:(proposalsRes.data||[]).map(normalizeProposal),
+      items:(itemsRes.data||[]).map(normalizeProposalItem)
+    };
+
+    const merged = {
+      leads:cloud.leads.length ? cloud.leads : local.leads,
+      services:cloud.services.length ? cloud.services : local.services,
+      proposals:cloud.proposals.length ? cloud.proposals : local.proposals,
+      items:cloud.items.length ? cloud.items : local.items
+    };
+
+    return ensureDefaultCommercialServices(merged);
+  }catch(error){
+    console.warn("Erro ao carregar Comercial:", error);
+    return ensureDefaultCommercialServices(local);
+  }
+}
+
+async function dbSetCommercial(data){
+  const normalized = {
+    leads:(data.leads||[]).map(normalizeLead),
+    services:(data.services||[]).map(normalizeService),
+    proposals:(data.proposals||[]).map(normalizeProposal),
+    items:(data.items||[]).map(normalizeProposalItem)
+  };
+  try{
+    window.localStorage?.setItem(COMERCIAL_STORAGE_KEY, JSON.stringify(normalized));
+    return {ok:true};
+  }catch(error){
+    console.error("Erro ao salvar módulo Comercial localmente:", error);
+    return {ok:false,error};
+  }
+}
+
+async function salvarLeadSupabase(lead){
+  if(!isSupabaseReady()) return {ok:false,skipped:true};
+  const payload = {
+    empresa:lead.empresa || "",
+    responsavel:lead.responsavel || "",
+    telefone:lead.telefone || "",
+    whatsapp:lead.whatsapp || "",
+    email:lead.email || "",
+    instagram:lead.instagram || "",
+    cidade:lead.cidade || "",
+    segmento:lead.segmento || "",
+    origem_lead:lead.origemLead || "",
+    observacoes:lead.observacoes || "",
+    status:lead.status || "Novo"
+  };
+
+  try{
+    const dbId = lead.supabaseId || (lead.id && isCloudId(lead.id) ? lead.id : null);
+    if(dbId){
+      const {data,error} = await supabase.from("coral_leads").update(payload).eq("id",dbId).select("*").single();
+      if(error) throw error;
+      return {ok:true,data:normalizeLead(data),id:data.id,updated:true};
+    }
+    const {data,error} = await supabase.from("coral_leads").insert([payload]).select("*").single();
+    if(error) throw error;
+    return {ok:true,data:normalizeLead(data),id:data.id};
+  }catch(error){
+    console.warn("Lead salvo apenas localmente:", error);
+    return {ok:false,error};
+  }
+}
+
+async function salvarServiceSupabase(service){
+  if(!isSupabaseReady()) return {ok:false,skipped:true};
+  const payload = {
+    seed_key:service.seedKey || null,
+    nome:service.nome || "",
+    categoria:service.categoria || "",
+    descricao:service.descricao || "",
+    valor_padrao:toNumber(service.valorPadrao),
+    tipo:service.tipo || "Mensal",
+    ativo:service.ativo !== false,
+    icone:service.icone || null,
+    ordem_exibicao:Number(service.ordemExibicao || 1)
+  };
+
+  try{
+    const dbId = service.supabaseId || (service.id && isCloudId(service.id) ? service.id : null);
+    if(dbId){
+      const {data,error} = await supabase.from("coral_services").update(payload).eq("id",dbId).select("*").single();
+      if(error) throw error;
+      return {ok:true,data:normalizeService(data),id:data.id,updated:true};
+    }
+    const {data,error} = await supabase.from("coral_services").insert([payload]).select("*").single();
+    if(error) throw error;
+    return {ok:true,data:normalizeService(data),id:data.id};
+  }catch(error){
+    console.warn("Serviço salvo apenas localmente:", error);
+    return {ok:false,error};
+  }
+}
+
+async function salvarProposalSupabase(proposal,items=[]){
+  if(!isSupabaseReady()) return {ok:false,skipped:true};
+  const totals = proposalTotals(items, proposal.descontoValor, proposal.descontoPercentual);
+  const leadDbId = proposal.leadSupabaseId || (proposal.leadId && isCloudId(proposal.leadId) ? proposal.leadId : null);
+  const leadSnapshot = {
+    id:proposal.leadId,
+    empresa:proposal.empresa,
+    responsavel:proposal.responsavel,
+    telefone:proposal.telefone,
+    whatsapp:proposal.whatsapp,
+    email:proposal.email,
+    instagram:proposal.instagram,
+    cidade:proposal.cidade,
+    segmento:proposal.segmento
+  };
+
+  const payload = {
+    lead_id:leadDbId || null,
+    lead_snapshot:leadSnapshot,
+    empresa:proposal.empresa || "",
+    responsavel:proposal.responsavel || "",
+    telefone:proposal.telefone || "",
+    whatsapp:proposal.whatsapp || "",
+    email:proposal.email || "",
+    instagram:proposal.instagram || "",
+    cidade:proposal.cidade || "",
+    segmento:proposal.segmento || "",
+    objetivos:proposal.objetivos || "",
+    condicoes_pagamento:proposal.condicoesPagamento || "",
+    proximos_passos:proposal.proximosPassos || "",
+    status:proposal.status || "Rascunho",
+    desconto_valor:toNumber(proposal.descontoValor),
+    desconto_percentual:toNumber(proposal.descontoPercentual),
+    valor_tabela:totals.valorTabela,
+    desconto_total:totals.descontoTotal,
+    valor_final:totals.valorFinal
+  };
+
+  try{
+    const dbId = proposal.supabaseId || (proposal.id && isCloudId(proposal.id) ? proposal.id : null);
+    let saved;
+    if(dbId){
+      const {data,error} = await supabase.from("coral_propostas").update(payload).eq("id",dbId).select("*").single();
+      if(error) throw error;
+      saved = data;
+      await supabase.from("coral_proposta_itens").delete().eq("proposta_id",dbId);
+    }else{
+      const {data,error} = await supabase.from("coral_propostas").insert([payload]).select("*").single();
+      if(error) throw error;
+      saved = data;
+    }
+
+    const propostaId = saved.id;
+    const itemPayload = (items||[]).map((item,index)=>({
+      proposta_id:propostaId,
+      servico_id:item.serviceId && isCloudId(item.serviceId) ? item.serviceId : null,
+      nome_servico:item.serviceName || "",
+      categoria:item.categoria || "",
+      descricao:item.descricao || "",
+      tipo:item.tipo || "Mensal",
+      quantidade:Number(item.quantidade || 1),
+      valor_unitario:toNumber(item.valorUnitario),
+      ordem:index+1
+    }));
+
+    if(itemPayload.length){
+      const {error:itemError} = await supabase.from("coral_proposta_itens").insert(itemPayload);
+      if(itemError) console.warn("Proposta salva, mas os itens ficaram apenas locais:", itemError);
+    }
+
+    return {ok:true,data:normalizeProposal(saved),id:propostaId};
+  }catch(error){
+    console.warn("Proposta salva apenas localmente:", error);
+    return {ok:false,error};
+  }
+}
+
+async function deleteSupabaseRow(table,id){
+  if(!isSupabaseReady() || !id || !isCloudId(id)) return {ok:false,skipped:true};
+  const {error} = await supabase.from(table).delete().eq("id",id);
+  if(error){
+    console.warn(`Erro ao excluir em ${table}:`, error);
+    return {ok:false,error};
+  }
+  return {ok:true};
+}
+
+async function ensureDefaultCommercialServices(data){
+  const current = Array.isArray(data.services) ? data.services.map(normalizeService) : [];
+  const bySeed = new Map(current.filter(s=>s.seedKey).map(s=>[s.seedKey,s]));
+  const byName = new Map(current.map(s=>[String(s.nome||"").trim().toLowerCase(),s]));
+  const merged = [...current];
+
+  for(const service of DEFAULT_SERVICES){
+    const exists = bySeed.get(service.seedKey) || byName.get(service.nome.toLowerCase());
+    if(exists) continue;
+    let normalized = normalizeService({...service,id:`local-service-${service.seedKey}`});
+    const saved = await salvarServiceSupabase(normalized);
+    if(saved?.ok && saved.data) normalized = saved.data;
+    merged.push(normalized);
+  }
+
+  const next = {
+    ...data,
+    services:merged.sort((a,b)=>(Number(a.ordemExibicao||0)-Number(b.ordemExibicao||0)) || String(a.nome).localeCompare(String(b.nome)))
+  };
+
+  try{ await dbSetCommercial(next); }catch{}
+  return next;
+}
+
+function openCommercialProposalPdf(proposal,items=[],lead=null){
+  const totals = proposalTotals(items, proposal.descontoValor, proposal.descontoPercentual);
+  const safe = esc;
+  const generatedAt = new Date().toLocaleDateString("pt-BR");
+  const selectedRows = (items||[]).map((item,index)=>`
+    <tr>
+      <td><b>${safe(item.serviceName)}</b><small>${safe(item.categoria||"Serviço")} · ${safe(item.tipo)}</small></td>
+      <td>${safe(item.descricao)}</td>
+      <td>${Number(item.quantidade||1)}</td>
+      <td>${moneyBR(item.valorUnitario)}</td>
+      <td>${moneyBR(toNumber(item.valorUnitario)*Number(item.quantidade||1))}</td>
+    </tr>
+  `).join("");
+
+  const html = `<!doctype html>
+  <html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>${safe(APP_NAME)} - Proposta ${safe(proposal.empresa||"Cliente")}</title>
+    <style>
+      @page{size:A4;margin:0}
+      *{box-sizing:border-box}
+      body{margin:0;font-family:Inter,Arial,sans-serif;background:#05070b;color:#f8fafc;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .page{width:210mm;min-height:297mm;padding:22mm;page-break-after:always;position:relative;overflow:hidden;background:
+        radial-gradient(circle at 20% 0%,rgba(249,115,22,.22),transparent 34%),
+        radial-gradient(circle at 88% 12%,rgba(0,240,255,.18),transparent 32%),
+        linear-gradient(180deg,#07101a,#05070b 60%,#020409)}
+      .page:last-child{page-break-after:auto}
+      .grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:13mm 13mm;mask-image:linear-gradient(to bottom,rgba(0,0,0,.85),transparent 80%)}
+      .content{position:relative;z-index:1}
+      .logo{width:38mm;height:38mm;object-fit:contain;mix-blend-mode:screen;filter:brightness(1.15) drop-shadow(0 0 18px rgba(0,240,255,.42))}
+      .eyebrow{font-size:9px;letter-spacing:4px;text-transform:uppercase;color:#00f0ff;font-weight:900}
+      h1{font-size:38px;line-height:1;margin:16mm 0 5mm;letter-spacing:-1.8px}
+      h2{font-size:25px;line-height:1.05;margin:0 0 8mm;letter-spacing:-1px}
+      p{font-size:12px;line-height:1.8;color:#cbd5e1}
+      .orange{color:#f97316}
+      .card{border:1px solid rgba(255,255,255,.10);background:rgba(15,23,42,.66);border-radius:18px;padding:8mm;backdrop-filter:blur(12px);box-shadow:0 20px 70px rgba(0,0,0,.28)}
+      .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:4mm;margin:8mm 0}
+      .kpi{border:1px solid rgba(249,115,22,.25);border-radius:14px;padding:5mm;background:rgba(249,115,22,.075)}
+      .kpi small{display:block;font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:1.8px;font-weight:900;margin-bottom:2mm}
+      .kpi strong{font-size:15px;color:#f8fafc}
+      table{width:100%;border-collapse:collapse;margin-top:7mm;border-radius:14px;overflow:hidden}
+      th{font-size:8px;text-transform:uppercase;letter-spacing:1.7px;color:#94a3b8;text-align:left;padding:4mm;background:rgba(255,255,255,.055)}
+      td{font-size:10px;color:#e2e8f0;padding:4mm;border-bottom:1px solid rgba(255,255,255,.08);vertical-align:top}
+      td small{display:block;color:#94a3b8;margin-top:1.5mm}
+      .summary{display:grid;grid-template-columns:1fr 1fr;gap:5mm;margin-top:7mm}
+      .total{border:1px solid rgba(0,240,255,.26);background:linear-gradient(135deg,rgba(0,240,255,.11),rgba(249,115,22,.10));border-radius:18px;padding:7mm}
+      .total span{display:block;font-size:8px;color:#94a3b8;letter-spacing:2px;text-transform:uppercase;font-weight:900}
+      .total strong{display:block;font-size:28px;margin-top:2mm;color:#f97316}
+      .footer{position:absolute;left:22mm;right:22mm;bottom:12mm;display:flex;justify-content:space-between;color:#64748b;font-size:8px;letter-spacing:1px;text-transform:uppercase}
+      .pill{display:inline-flex;align-items:center;border:1px solid rgba(249,115,22,.32);border-radius:999px;padding:3mm 5mm;color:#f97316;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:1.6px;background:rgba(249,115,22,.08)}
+      @media print{button{display:none}}
+    </style>
+  </head>
+  <body>
+    <section class="page">
+      <div class="grid"></div>
+      <div class="content">
+        <img class="logo" src="${CORAL_LOGO}" alt="Coral Films"/>
+        <div class="eyebrow">${safe(APP_NAME)} · Proposta Comercial</div>
+        <h1>Proposta premium para <span class="orange">${safe(proposal.empresa||"Cliente")}</span></h1>
+        <p>${safe(APP_SUBTITLE)}. Documento preparado pela Coral Films para apresentar serviços, investimento e próximos passos com clareza.</p>
+        <div class="card" style="margin-top:14mm">
+          <div class="eyebrow">Cliente</div>
+          <p><b>${safe(proposal.responsavel||lead?.responsavel||"Responsável não informado")}</b><br/>
+          ${safe(proposal.email||lead?.email||"")} ${proposal.whatsapp ? " · WhatsApp: "+safe(proposal.whatsapp) : ""}<br/>
+          ${safe(proposal.cidade||lead?.cidade||"")} ${proposal.segmento ? " · "+safe(proposal.segmento) : ""}</p>
+        </div>
+      </div>
+      <div class="footer"><span>Coral Films</span><span>${generatedAt}</span></div>
+    </section>
+
+    <section class="page">
+      <div class="grid"></div>
+      <div class="content">
+        <div class="eyebrow">Objetivos e apresentação</div>
+        <h2>Como a Coral Films pode acelerar a presença digital da marca</h2>
+        <div class="card">
+          <p>${safe(proposal.objetivos || "Estruturar uma presença digital consistente, com produção audiovisual, conteúdo estratégico e entregas comerciais alinhadas ao posicionamento da empresa.")}</p>
+        </div>
+        <div class="summary">
+          <div class="card"><div class="eyebrow">Coral Films</div><p>Somos uma operação criativa focada em transformar negócios em marcas mais desejadas por meio de estratégia, vídeo, design e gestão de conteúdo.</p></div>
+          <div class="card"><div class="eyebrow">Método</div><p>Unimos planejamento, produção e acompanhamento para entregar materiais com visual profissional, comunicação clara e foco em conversão.</p></div>
+        </div>
+      </div>
+      <div class="footer"><span>${safe(APP_NAME)}</span><span>Apresentação</span></div>
+    </section>
+
+    <section class="page">
+      <div class="grid"></div>
+      <div class="content">
+        <div class="eyebrow">Serviços selecionados</div>
+        <h2>Escopo da proposta</h2>
+        <table>
+          <thead><tr><th>Serviço</th><th>Descrição</th><th>Qtd.</th><th>Valor</th><th>Total</th></tr></thead>
+          <tbody>${selectedRows || `<tr><td colspan="5">Nenhum serviço selecionado.</td></tr>`}</tbody>
+        </table>
+      </div>
+      <div class="footer"><span>${safe(APP_NAME)}</span><span>Escopo</span></div>
+    </section>
+
+    <section class="page">
+      <div class="grid"></div>
+      <div class="content">
+        <div class="eyebrow">Investimento</div>
+        <h2>Resumo financeiro da proposta</h2>
+        <div class="kpis">
+          <div class="kpi"><small>Implementação</small><strong>${moneyBR(totals.valorImplementacao)}</strong></div>
+          <div class="kpi"><small>Mensal</small><strong>${moneyBR(totals.valorMensal)}</strong></div>
+          <div class="kpi"><small>Projeto</small><strong>${moneyBR(totals.valorProjeto)}</strong></div>
+          <div class="kpi"><small>Desconto</small><strong>${moneyBR(totals.descontoTotal)}</strong></div>
+        </div>
+        <div class="summary">
+          <div class="card">
+            <p><b>Valor de Tabela:</b> ${moneyBR(totals.valorTabela)}<br/>
+            <b>Desconto aplicado:</b> ${moneyBR(totals.descontoTotal)}${Number(proposal.descontoPercentual||0)>0 ? ` (${Number(proposal.descontoPercentual||0)}%)` : ""}<br/>
+            <b>Valor Final:</b> ${moneyBR(totals.valorFinal)}</p>
+          </div>
+          <div class="total"><span>Valor Final da Proposta</span><strong>${moneyBR(totals.valorFinal)}</strong></div>
+        </div>
+        <div class="card" style="margin-top:7mm">
+          <div class="eyebrow">Condições de pagamento</div>
+          <p>${safe(proposal.condicoesPagamento || "Condições a definir com o cliente após aprovação da proposta.")}</p>
+        </div>
+        <div class="card" style="margin-top:5mm">
+          <div class="eyebrow">Próximos passos</div>
+          <p>${safe(proposal.proximosPassos || "Aprovar proposta, alinhar cronograma e iniciar a produção.")}</p>
+        </div>
+        <div style="margin-top:8mm"><span class="pill">Pronto para aprovação</span></div>
+      </div>
+      <div class="footer"><span>Coral Films</span><span>Fim</span></div>
+    </section>
+    <script>setTimeout(function(){try{window.focus();window.print()}catch(e){}},600);</script>
+  </body>
+  </html>`;
+
+  const w = window.open("","_blank");
+  if(!w) return alert("Permita pop-ups para gerar o PDF.");
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+}
+
 
 function isSupabaseReady(){
   return Boolean(supabase && typeof supabase.from === "function");
@@ -540,7 +1207,7 @@ function openPremiumPdf(client,plan,mode="plan"){
       <section class="page cover-page">
         <div class="cover-copy">
           <div>
-            <div class="brand"><img class="brand-logo" src="${CORAL_LOGO}" alt="Coral Films"/><div class="brand-text"><strong>${safeAgency}</strong><span>Conteúdo • Vídeo • Estratégia</span></div></div>
+            <div class="brand"><img class="brand-logo" src="${CORAL_LOGO}" alt="Coral Hub"/><div class="brand-text"><strong>${safeAgency}</strong><span>Conteúdo • Vídeo • Estratégia</span></div></div>
             <div class="pill">${finalMode ? "Aprovação de Conteúdo" : "Planejamento do Mês"}</div>
             <h1 class="cover-title">${title}</h1>
             <p class="cover-subtitle">${esc(subtitle)}</p>
@@ -714,7 +1381,7 @@ function Logo({size=120,glow=false}){
     }}>
       <img
         src={CORAL_LOGO}
-        alt="Coral Films"
+        alt="Coral Hub"
         style={{
           width:"100%", height:"100%", objectFit:"contain",
           mixBlendMode:"screen",
@@ -756,8 +1423,8 @@ function LoadingScreen({onDone}){
         </div>
 
         <div className="loading-copy">
-          <strong>CORAL FILMS</strong>
-          <span>AI CONTENT OPERATING SYSTEM</span>
+          <strong>CORAL HUB</strong>
+          <span>Sistema Inteligente de Gestão da Coral Films</span>
         </div>
 
         <div className="loading-status">
@@ -777,21 +1444,30 @@ function LoadingScreen({onDone}){
 }
 
 // ─── Header ───────────────────────────────────────────────────────────────────
-function Header({screen,onBack,onNew}){
+function Header({screen,onBack,onNew,onCommercial,onNavigate}){
+  const isCommercial = String(screen||"").startsWith("commercial");
   return(
     <header className="app-header">
       <div className="header-brand">
         <div className="header-logo">
-          <img src={CORAL_LOGO} alt="Coral Films"/>
+          <img src={CORAL_LOGO} alt="Coral Hub"/>
         </div>
         <div>
-          <strong>CORAL FILMS</strong>
-          <span>Planning SaaS</span>
+          <strong>{APP_NAME.toUpperCase()}</strong>
+          <span>{APP_SUBTITLE}</span>
         </div>
       </div>
 
       <div className="header-actions">
-        {screen!=="list"&&<button className="btn-glass" onClick={onBack}>← Voltar</button>}
+        {screen!=="list"&&<button className="btn-glass" onClick={onBack}>← Dashboard</button>}
+        {isCommercial&&(
+          <>
+            <button className="btn-glass" onClick={()=>onNavigate("commercial-leads")}>Leads</button>
+            <button className="btn-glass" onClick={()=>onNavigate("commercial-proposals")}>Propostas</button>
+            <button className="btn-glass" onClick={()=>onNavigate("commercial-services")}>Serviços</button>
+          </>
+        )}
+        {screen==="list"&&<button className="btn-glass" onClick={onCommercial}>Comercial</button>}
         {screen==="list"&&<button className="btn-new-client" onClick={onNew}>+ Novo Cliente</button>}
       </div>
     </header>
@@ -1084,6 +1760,463 @@ class AppErrorBoundary extends React.Component{
 }
 
 // ─── App ───────────────────────────────────────────────────────────────────────
+
+function CommercialHome({leads,services,proposals,onNavigate}){
+  const openLeads = leads.filter(l=>!["Fechado","Perdido","Cliente Ativo"].includes(l.status)).length;
+  const activeServices = services.filter(s=>s.ativo!==false).length;
+  const totalProposalValue = proposals.reduce((sum,p)=>sum + toNumber(p.valorFinal || p.valorTabela),0);
+
+  const menu = [
+    {id:"commercial-leads",icon:"🎯",title:"Leads",desc:"Cadastre, filtre e acompanhe oportunidades comerciais.",kpi:`${openLeads} em aberto`},
+    {id:"commercial-proposals",icon:"📄",title:"Propostas",desc:"Monte propostas com serviços, descontos e PDF premium.",kpi:moneyBR(totalProposalValue)},
+    {id:"commercial-services",icon:"🧩",title:"Catálogo de Serviços",desc:"Gerencie serviços, valores padrão e descrições automáticas.",kpi:`${activeServices} ativos`}
+  ];
+
+  return(
+    <div style={{maxWidth:1100,margin:"0 auto",padding:"28px 20px",animation:"fadeIn .35s ease-out"}}>
+      <div style={{...ocrd,marginBottom:20,background:"linear-gradient(135deg,#110d08,#07101a)"}}>
+        <div style={{fontSize:10,fontWeight:900,letterSpacing:4,color:C.orange,textTransform:"uppercase",marginBottom:8}}>Módulo Comercial</div>
+        <h1 style={{fontSize:30,fontWeight:950,letterSpacing:-1,margin:"0 0 8px"}}>Pipeline comercial <span style={{color:C.neon}}>Coral Hub</span></h1>
+        <p style={{fontSize:13,color:C.dim,lineHeight:1.8,margin:0,maxWidth:760}}>Gerencie leads, catálogo de serviços e propostas comerciais da Coral Films sem alterar o fluxo atual de clientes e planejamentos.</p>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:16}}>
+        {menu.map(item=>(
+          <button key={item.id} onClick={()=>onNavigate(item.id)} style={{...card,textAlign:"left",cursor:"pointer",borderRadius:18,background:"linear-gradient(145deg,rgba(18,26,39,.96),rgba(7,11,18,.96))"}}>
+            <div style={{fontSize:34,marginBottom:14}}>{item.icon}</div>
+            <div style={{fontSize:10,fontWeight:900,letterSpacing:3,color:C.orange,textTransform:"uppercase",marginBottom:6}}>{item.kpi}</div>
+            <h2 style={{fontSize:20,margin:"0 0 8px",fontWeight:950}}>{item.title}</h2>
+            <p style={{fontSize:12,color:C.dim,lineHeight:1.7,margin:0}}>{item.desc}</p>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CommercialTopMenu({current,onNavigate}){
+  const items = [
+    ["commercial","🏠 Comercial"],
+    ["commercial-leads","🎯 Leads"],
+    ["commercial-proposals","📄 Propostas"],
+    ["commercial-services","🧩 Serviços"]
+  ];
+  return(
+    <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:18}}>
+      {items.map(([id,label])=>(
+        <button key={id} onClick={()=>onNavigate(id)} style={{
+          ...btn(current===id?"primary":"ghost","sm"),
+          borderRadius:999,
+          padding:"8px 13px"
+        }}>{label}</button>
+      ))}
+    </div>
+  );
+}
+
+function LeadsView({leads,form,setForm,editingLead,filters,setFilters,onSave,onEdit,onDelete,onNew,onNavigate}){
+  const search = String(filters.search||"").toLowerCase();
+  const filtered = leads
+    .filter(lead=>{
+      const blob = [lead.empresa,lead.responsavel,lead.telefone,lead.whatsapp,lead.email,lead.instagram,lead.cidade,lead.segmento,lead.origemLead,lead.observacoes,lead.status].join(" ").toLowerCase();
+      const statusOk = !filters.status || filters.status==="Todos" || lead.status===filters.status;
+      return statusOk && (!search || blob.includes(search));
+    })
+    .sort((a,b)=>{
+      if(filters.sort==="empresa") return String(a.empresa).localeCompare(String(b.empresa));
+      if(filters.sort==="status") return String(a.status).localeCompare(String(b.status));
+      if(filters.sort==="cidade") return String(a.cidade).localeCompare(String(b.cidade));
+      return String(b.createdAt||"").localeCompare(String(a.createdAt||""));
+    });
+
+  return(
+    <div style={{maxWidth:1180,margin:"0 auto",padding:"28px 20px",animation:"fadeIn .35s ease-out"}}>
+      <CommercialTopMenu current="commercial-leads" onNavigate={onNavigate}/>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:16,marginBottom:18,flexWrap:"wrap"}}>
+        <div>
+          <div style={{fontSize:10,fontWeight:900,letterSpacing:4,color:C.orange,textTransform:"uppercase",marginBottom:6}}>Comercial</div>
+          <h1 style={{fontSize:28,fontWeight:950,letterSpacing:-1,margin:0}}>Leads</h1>
+        </div>
+        <button style={btn("primary")} onClick={onNew}>+ Novo Lead</button>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"minmax(320px,420px) 1fr",gap:16,alignItems:"start"}}>
+        <div style={ocrd}>
+          <div style={{fontSize:13,fontWeight:900,marginBottom:14}}>{editingLead ? "Editar Lead" : "Cadastro de Lead"}</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr",gap:10}}>
+            <div><label style={lbl}>Empresa *</label><input style={inp} value={form.empresa} onChange={e=>setForm(f=>({...f,empresa:e.target.value}))} placeholder="Nome da empresa"/></div>
+            <div><label style={lbl}>Responsável</label><input style={inp} value={form.responsavel} onChange={e=>setForm(f=>({...f,responsavel:e.target.value}))} placeholder="Nome do responsável"/></div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div><label style={lbl}>Telefone</label><input style={inp} value={form.telefone} onChange={e=>setForm(f=>({...f,telefone:e.target.value}))}/></div>
+              <div><label style={lbl}>WhatsApp</label><input style={inp} value={form.whatsapp} onChange={e=>setForm(f=>({...f,whatsapp:e.target.value}))}/></div>
+            </div>
+            <div><label style={lbl}>Email</label><input style={inp} value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="email@empresa.com"/></div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div><label style={lbl}>Instagram</label><input style={inp} value={form.instagram} onChange={e=>setForm(f=>({...f,instagram:e.target.value}))} placeholder="@empresa"/></div>
+              <div><label style={lbl}>Cidade</label><input style={inp} value={form.cidade} onChange={e=>setForm(f=>({...f,cidade:e.target.value}))}/></div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div><label style={lbl}>Segmento</label><input style={inp} value={form.segmento} onChange={e=>setForm(f=>({...f,segmento:e.target.value}))} placeholder="Ex: Restaurante"/></div>
+              <div><label style={lbl}>Origem do Lead</label><input style={inp} value={form.origemLead} onChange={e=>setForm(f=>({...f,origemLead:e.target.value}))} placeholder="Instagram, indicação..."/></div>
+            </div>
+            <div>
+              <label style={lbl}>Status</label>
+              <select style={inp} value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))}>
+                {LEAD_STATUS_OPTIONS.map(s=><option key={s}>{s}</option>)}
+              </select>
+            </div>
+            <div><label style={lbl}>Observações</label><textarea style={{...inp,height:84,resize:"vertical"}} value={form.observacoes} onChange={e=>setForm(f=>({...f,observacoes:e.target.value}))}/></div>
+            <div style={{display:"flex",gap:8}}>
+              <button style={{...btn("primary"),flex:1}} onClick={onSave}>{editingLead ? "Salvar Alterações" : "Salvar Lead"}</button>
+              <button style={btn("ghost")} onClick={onNew}>Limpar</button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div style={{...ncrd,marginBottom:14}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 170px 160px",gap:10}}>
+              <input style={inp} value={filters.search} onChange={e=>setFilters(f=>({...f,search:e.target.value}))} placeholder="Pesquisar por empresa, responsável, cidade, origem..."/>
+              <select style={inp} value={filters.status} onChange={e=>setFilters(f=>({...f,status:e.target.value}))}>
+                <option>Todos</option>
+                {LEAD_STATUS_OPTIONS.map(s=><option key={s}>{s}</option>)}
+              </select>
+              <select style={inp} value={filters.sort} onChange={e=>setFilters(f=>({...f,sort:e.target.value}))}>
+                <option value="created_desc">Mais recentes</option>
+                <option value="empresa">Empresa</option>
+                <option value="status">Status</option>
+                <option value="cidade">Cidade</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:12}}>
+            {filtered.map((lead,index)=>(
+              <div key={lead.id} style={{...card,borderRadius:16,animation:"fadeIn .3s ease-out",animationDelay:`${index*.03}s`}}>
+                <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start"}}>
+                  <div>
+                    <h3 style={{fontSize:17,margin:"0 0 5px",fontWeight:950}}>{lead.empresa || "Empresa sem nome"}</h3>
+                    <div style={{fontSize:11,color:C.orange,fontWeight:800,textTransform:"uppercase",letterSpacing:1.5}}>{lead.segmento || "Sem segmento"}</div>
+                  </div>
+                  <Tag label={lead.status} color={lead.status==="Cliente Ativo"?C.success:lead.status==="Perdido"?C.danger:C.orange}/>
+                </div>
+                <div style={{fontSize:12,color:C.dim,lineHeight:1.7,marginTop:12}}>
+                  {lead.responsavel && <div>👤 {lead.responsavel}</div>}
+                  {lead.whatsapp && <div>💬 {lead.whatsapp}</div>}
+                  {lead.email && <div>✉️ {lead.email}</div>}
+                  {lead.cidade && <div>📍 {lead.cidade}</div>}
+                </div>
+                {lead.observacoes && <p style={{fontSize:12,color:C.dim,lineHeight:1.6,margin:"12px 0 0"}}>{lead.observacoes}</p>}
+                <div style={{display:"flex",gap:8,marginTop:14}}>
+                  <button style={{...btn("ghost","sm"),flex:1}} onClick={()=>onEdit(lead)}>Editar</button>
+                  <button style={btn("danger","sm")} onClick={()=>onDelete(lead.id)}>Excluir</button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {filtered.length===0&&(
+            <div style={{...ocrd,textAlign:"center",padding:40}}>
+              <div style={{fontSize:32,marginBottom:10}}>🔎</div>
+              <p style={{color:C.dim,margin:0}}>Nenhum lead encontrado com os filtros atuais.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ServicesCatalogView({services,form,setForm,editingService,onSave,onEdit,onDelete,onNew,onNavigate}){
+  const sorted = [...services].sort((a,b)=>(Number(a.ordemExibicao||0)-Number(b.ordemExibicao||0)) || String(a.nome).localeCompare(String(b.nome)));
+
+  return(
+    <div style={{maxWidth:1180,margin:"0 auto",padding:"28px 20px",animation:"fadeIn .35s ease-out"}}>
+      <CommercialTopMenu current="commercial-services" onNavigate={onNavigate}/>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:16,marginBottom:18,flexWrap:"wrap"}}>
+        <div>
+          <div style={{fontSize:10,fontWeight:900,letterSpacing:4,color:C.orange,textTransform:"uppercase",marginBottom:6}}>Comercial</div>
+          <h1 style={{fontSize:28,fontWeight:950,letterSpacing:-1,margin:0}}>Catálogo de Serviços</h1>
+        </div>
+        <button style={btn("primary")} onClick={onNew}>+ Novo Serviço</button>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"minmax(320px,420px) 1fr",gap:16,alignItems:"start"}}>
+        <div style={ocrd}>
+          <div style={{fontSize:13,fontWeight:900,marginBottom:14}}>{editingService ? "Editar Serviço" : "Cadastro de Serviço"}</div>
+          <div style={{display:"grid",gap:10}}>
+            <div><label style={lbl}>Nome *</label><input style={inp} value={form.nome} onChange={e=>setForm(f=>({...f,nome:e.target.value}))}/></div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 130px",gap:10}}>
+              <div><label style={lbl}>Categoria</label><input style={inp} value={form.categoria} onChange={e=>setForm(f=>({...f,categoria:e.target.value}))}/></div>
+              <div><label style={lbl}>Ícone</label><input style={inp} value={form.icone} onChange={e=>setForm(f=>({...f,icone:e.target.value}))} placeholder="🎥"/></div>
+            </div>
+            <div><label style={lbl}>Descrição</label><textarea style={{...inp,height:96,resize:"vertical"}} value={form.descricao} onChange={e=>setForm(f=>({...f,descricao:e.target.value}))}/></div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div><label style={lbl}>Valor padrão</label><input style={inp} type="number" min="0" step="0.01" value={form.valorPadrao} onChange={e=>setForm(f=>({...f,valorPadrao:e.target.value}))}/></div>
+              <div>
+                <label style={lbl}>Tipo</label>
+                <select style={inp} value={form.tipo} onChange={e=>setForm(f=>({...f,tipo:e.target.value}))}>
+                  {SERVICE_TYPE_OPTIONS.map(s=><option key={s}>{s}</option>)}
+                </select>
+              </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div><label style={lbl}>Ordem</label><input style={inp} type="number" value={form.ordemExibicao} onChange={e=>setForm(f=>({...f,ordemExibicao:e.target.value}))}/></div>
+              <div>
+                <label style={lbl}>Status</label>
+                <select style={inp} value={form.ativo ? "Ativo" : "Inativo"} onChange={e=>setForm(f=>({...f,ativo:e.target.value==="Ativo"}))}>
+                  <option>Ativo</option>
+                  <option>Inativo</option>
+                </select>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button style={{...btn("primary"),flex:1}} onClick={onSave}>{editingService ? "Salvar Alterações" : "Salvar Serviço"}</button>
+              <button style={btn("ghost")} onClick={onNew}>Limpar</button>
+            </div>
+          </div>
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(250px,1fr))",gap:12}}>
+          {sorted.map(service=>(
+            <div key={service.id} style={{...card,borderRadius:16,opacity:service.ativo===false ? .65 : 1}}>
+              <div style={{display:"flex",justifyContent:"space-between",gap:10}}>
+                <div style={{fontSize:28}}>{service.icone || "🧩"}</div>
+                <Tag label={service.ativo===false?"Inativo":"Ativo"} color={service.ativo===false?C.muted:C.success}/>
+              </div>
+              <h3 style={{fontSize:17,margin:"12px 0 4px",fontWeight:950}}>{service.nome}</h3>
+              <div style={{fontSize:10,color:C.orange,fontWeight:900,letterSpacing:2,textTransform:"uppercase"}}>{service.categoria || "Sem categoria"} · {service.tipo}</div>
+              <p style={{fontSize:12,color:C.dim,lineHeight:1.6,minHeight:58}}>{service.descricao}</p>
+              <div style={{fontSize:20,fontWeight:950,color:C.neon,marginBottom:12}}>{moneyBR(service.valorPadrao)}</div>
+              <div style={{display:"flex",gap:8}}>
+                <button style={{...btn("ghost","sm"),flex:1}} onClick={()=>onEdit(service)}>Editar</button>
+                <button style={btn("danger","sm")} onClick={()=>onDelete(service.id)}>Excluir</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProposalsView({proposals,items,leads,onNew,onEdit,onPdf,onConvert,onDelete,onNavigate}){
+  const leadMap = new Map(leads.map(l=>[String(l.id),l]));
+  const sorted = [...proposals].sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
+
+  return(
+    <div style={{maxWidth:1180,margin:"0 auto",padding:"28px 20px",animation:"fadeIn .35s ease-out"}}>
+      <CommercialTopMenu current="commercial-proposals" onNavigate={onNavigate}/>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:16,marginBottom:18,flexWrap:"wrap"}}>
+        <div>
+          <div style={{fontSize:10,fontWeight:900,letterSpacing:4,color:C.orange,textTransform:"uppercase",marginBottom:6}}>Comercial</div>
+          <h1 style={{fontSize:28,fontWeight:950,letterSpacing:-1,margin:0}}>Propostas</h1>
+        </div>
+        <button style={btn("primary")} onClick={onNew}>+ Nova Proposta</button>
+      </div>
+
+      {sorted.length===0?(
+        <div style={{...ocrd,textAlign:"center",padding:52}}>
+          <div style={{fontSize:40,marginBottom:12}}>📄</div>
+          <p style={{color:C.dim,margin:"0 0 18px"}}>Nenhuma proposta criada ainda.</p>
+          <button style={btn("primary")} onClick={onNew}>Criar primeira proposta</button>
+        </div>
+      ):(
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))",gap:14}}>
+          {sorted.map(proposal=>{
+            const proposalItems = items.filter(i=>String(i.proposalId)===String(proposal.id) || String(i.proposalId)===String(proposal.supabaseId));
+            const totals = proposalTotals(proposalItems, proposal.descontoValor, proposal.descontoPercentual);
+            const lead = leadMap.get(String(proposal.leadId));
+            return(
+              <div key={proposal.id} style={{...card,borderRadius:18,background:"linear-gradient(145deg,rgba(18,26,39,.96),rgba(7,11,18,.96))"}}>
+                <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start"}}>
+                  <div>
+                    <h3 style={{fontSize:18,margin:"0 0 5px",fontWeight:950}}>{proposal.empresa || lead?.empresa || "Cliente sem nome"}</h3>
+                    <div style={{fontSize:11,color:C.dim}}>{proposal.responsavel || lead?.responsavel || "Responsável não informado"}</div>
+                  </div>
+                  <Tag label={proposal.status} color={proposal.status==="Convertida"?C.success:proposal.status==="Recusada"?C.danger:C.orange}/>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:14}}>
+                  <div style={{...ncrd,padding:12}}>
+                    <div style={{fontSize:9,color:C.dim,fontWeight:900,letterSpacing:1.4,textTransform:"uppercase"}}>Valor Final</div>
+                    <div style={{fontSize:18,fontWeight:950,color:C.neon,marginTop:4}}>{moneyBR(proposal.valorFinal || totals.valorFinal)}</div>
+                  </div>
+                  <div style={{...ocrd,padding:12}}>
+                    <div style={{fontSize:9,color:C.dim,fontWeight:900,letterSpacing:1.4,textTransform:"uppercase"}}>Itens</div>
+                    <div style={{fontSize:18,fontWeight:950,color:C.orange,marginTop:4}}>{proposalItems.length}</div>
+                  </div>
+                </div>
+                {proposal.objetivos && <p style={{fontSize:12,color:C.dim,lineHeight:1.6,margin:"12px 0 0"}}>{proposal.objetivos.slice(0,170)}{proposal.objetivos.length>170?"...":""}</p>}
+                <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:14}}>
+                  <button style={btn("ghost","sm")} onClick={()=>onEdit(proposal)}>Editar</button>
+                  <button style={btn("neon","sm")} onClick={()=>onPdf(proposal)}>PDF</button>
+                  <button style={btn("primary","sm")} onClick={()=>onConvert(proposal)}>Converter em Cliente</button>
+                  <button style={btn("danger","sm")} onClick={()=>onDelete(proposal.id)}>Excluir</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProposalFormView({form,setForm,leads,services,onLeadChange,onToggleService,onUpdateItem,onRemoveItem,onSave,onCancel,onPdfDraft,onNavigate,editingProposal}){
+  const activeServices = services.filter(s=>s.ativo!==false).sort((a,b)=>(Number(a.ordemExibicao||0)-Number(b.ordemExibicao||0)) || String(a.nome).localeCompare(String(b.nome)));
+  const selectedIds = new Set((form.items||[]).map(i=>String(i.serviceId)));
+  const totals = proposalTotals(form.items, form.descontoValor, form.descontoPercentual);
+
+  return(
+    <div style={{maxWidth:1180,margin:"0 auto",padding:"28px 20px",animation:"fadeIn .35s ease-out"}}>
+      <CommercialTopMenu current="commercial-proposals" onNavigate={onNavigate}/>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:16,marginBottom:18,flexWrap:"wrap"}}>
+        <div>
+          <div style={{fontSize:10,fontWeight:900,letterSpacing:4,color:C.orange,textTransform:"uppercase",marginBottom:6}}>{editingProposal ? "Editar Proposta" : "Nova Proposta"}</div>
+          <h1 style={{fontSize:28,fontWeight:950,letterSpacing:-1,margin:0}}>Gerador de Propostas</h1>
+        </div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <button style={btn("neon")} onClick={onPdfDraft}>PDF Prévia</button>
+          <button style={btn("ghost")} onClick={onCancel}>Cancelar</button>
+          <button style={btn("primary")} onClick={onSave}>Salvar Proposta</button>
+        </div>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 340px",gap:16,alignItems:"start"}}>
+        <div style={{display:"flex",flexDirection:"column",gap:16}}>
+          <div style={ocrd}>
+            <div style={{fontSize:13,fontWeight:900,marginBottom:14}}>Dados do cliente</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <div>
+                <label style={lbl}>Lead</label>
+                <select style={inp} value={form.leadId} onChange={e=>onLeadChange(e.target.value)}>
+                  <option value="">Selecionar lead ou preencher manualmente</option>
+                  {leads.map(lead=><option key={lead.id} value={lead.id}>{lead.empresa} {lead.responsavel?`· ${lead.responsavel}`:""}</option>)}
+                </select>
+              </div>
+              <div><label style={lbl}>Empresa *</label><input style={inp} value={form.empresa} onChange={e=>setForm(f=>({...f,empresa:e.target.value}))}/></div>
+              <div><label style={lbl}>Responsável</label><input style={inp} value={form.responsavel} onChange={e=>setForm(f=>({...f,responsavel:e.target.value}))}/></div>
+              <div><label style={lbl}>WhatsApp</label><input style={inp} value={form.whatsapp} onChange={e=>setForm(f=>({...f,whatsapp:e.target.value}))}/></div>
+              <div><label style={lbl}>Email</label><input style={inp} value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))}/></div>
+              <div><label style={lbl}>Cidade</label><input style={inp} value={form.cidade} onChange={e=>setForm(f=>({...f,cidade:e.target.value}))}/></div>
+              <div><label style={lbl}>Instagram</label><input style={inp} value={form.instagram} onChange={e=>setForm(f=>({...f,instagram:e.target.value}))}/></div>
+              <div><label style={lbl}>Segmento</label><input style={inp} value={form.segmento} onChange={e=>setForm(f=>({...f,segmento:e.target.value}))}/></div>
+            </div>
+            <div style={{marginTop:12}}>
+              <label style={lbl}>Objetivos</label>
+              <textarea style={{...inp,height:90,resize:"vertical"}} value={form.objetivos} onChange={e=>setForm(f=>({...f,objetivos:e.target.value}))} placeholder="Objetivos do cliente e contexto da proposta..."/>
+            </div>
+          </div>
+
+          <div style={ncrd}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,gap:12}}>
+              <div>
+                <div style={{fontSize:13,fontWeight:900}}>Selecionar serviços do catálogo</div>
+                <div style={{fontSize:11,color:C.dim,marginTop:4}}>Os valores e descrições entram automaticamente e podem ser editados abaixo.</div>
+              </div>
+              <Tag label={`${(form.items||[]).length} selecionado(s)`} color={C.neon}/>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(210px,1fr))",gap:10}}>
+              {activeServices.map(service=>{
+                const selected = selectedIds.has(String(service.id));
+                return(
+                  <button key={service.id} onClick={()=>onToggleService(service)} style={{
+                    textAlign:"left",
+                    cursor:"pointer",
+                    borderRadius:14,
+                    padding:14,
+                    border:`1px solid ${selected?C.orange:C.border}`,
+                    background:selected?"rgba(249,115,22,.14)":C.card2,
+                    color:C.white
+                  }}>
+                    <div style={{display:"flex",justifyContent:"space-between",gap:8}}>
+                      <span style={{fontSize:22}}>{service.icone || "🧩"}</span>
+                      <span style={{fontSize:11,color:selected?C.orange:C.dim,fontWeight:900}}>{selected?"✓ SELECIONADO":"ADICIONAR"}</span>
+                    </div>
+                    <div style={{fontSize:13,fontWeight:900,marginTop:8}}>{service.nome}</div>
+                    <div style={{fontSize:10,color:C.dim,textTransform:"uppercase",letterSpacing:1.5,marginTop:4}}>{service.tipo} · {moneyBR(service.valorPadrao)}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {(form.items||[]).length>0 && (
+            <div style={{...card,overflowX:"auto"}}>
+              <div style={{fontSize:13,fontWeight:900,marginBottom:14}}>Itens da proposta</div>
+              <table style={{width:"100%",borderCollapse:"collapse",minWidth:760}}>
+                <thead>
+                  <tr>{["Serviço","Descrição","Tipo","Qtd.","Valor","Total",""].map(h=><th key={h} style={{padding:"10px",fontSize:10,color:C.dim,textTransform:"uppercase",letterSpacing:1.4,textAlign:"left",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {(form.items||[]).map((item,index)=>(
+                    <tr key={item.id || index} style={{borderBottom:`1px solid ${C.border}`}}>
+                      <td style={{padding:10,minWidth:160}}><input style={inp} value={item.serviceName} onChange={e=>onUpdateItem(index,"serviceName",e.target.value)}/></td>
+                      <td style={{padding:10,minWidth:240}}><textarea style={{...inp,height:70,resize:"vertical"}} value={item.descricao} onChange={e=>onUpdateItem(index,"descricao",e.target.value)}/></td>
+                      <td style={{padding:10,minWidth:130}}>
+                        <select style={inp} value={item.tipo} onChange={e=>onUpdateItem(index,"tipo",e.target.value)}>
+                          {SERVICE_TYPE_OPTIONS.map(s=><option key={s}>{s}</option>)}
+                        </select>
+                      </td>
+                      <td style={{padding:10,width:80}}><input style={inp} type="number" min="1" value={item.quantidade} onChange={e=>onUpdateItem(index,"quantidade",e.target.value)}/></td>
+                      <td style={{padding:10,width:120}}><input style={inp} type="number" min="0" step="0.01" value={item.valorUnitario} onChange={e=>onUpdateItem(index,"valorUnitario",e.target.value)}/></td>
+                      <td style={{padding:10,fontWeight:900,color:C.neon,whiteSpace:"nowrap"}}>{moneyBR(toNumber(item.valorUnitario)*Number(item.quantidade||1))}</td>
+                      <td style={{padding:10}}><button style={btn("danger","sm")} onClick={()=>onRemoveItem(index)}>×</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div style={ocrd}>
+            <div style={{fontSize:13,fontWeight:900,marginBottom:14}}>Condições e próximos passos</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <div><label style={lbl}>Condições de pagamento</label><textarea style={{...inp,height:110,resize:"vertical"}} value={form.condicoesPagamento} onChange={e=>setForm(f=>({...f,condicoesPagamento:e.target.value}))}/></div>
+              <div><label style={lbl}>Próximos passos</label><textarea style={{...inp,height:110,resize:"vertical"}} value={form.proximosPassos} onChange={e=>setForm(f=>({...f,proximosPassos:e.target.value}))}/></div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{position:"sticky",top:88,display:"flex",flexDirection:"column",gap:12}}>
+          <div style={ocrd}>
+            <div style={{fontSize:13,fontWeight:900,marginBottom:14}}>Resumo financeiro</div>
+            <div style={{display:"grid",gap:10}}>
+              <div><label style={lbl}>Desconto em valor</label><input style={inp} type="number" min="0" step="0.01" value={form.descontoValor} onChange={e=>setForm(f=>({...f,descontoValor:e.target.value}))}/></div>
+              <div><label style={lbl}>Desconto em %</label><input style={inp} type="number" min="0" step="0.01" value={form.descontoPercentual} onChange={e=>setForm(f=>({...f,descontoPercentual:e.target.value}))}/></div>
+              <div>
+                <label style={lbl}>Status da proposta</label>
+                <select style={inp} value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))}>
+                  {PROPOSAL_STATUS_OPTIONS.map(s=><option key={s}>{s}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div style={{...card,borderRadius:18,background:"linear-gradient(145deg,rgba(18,26,39,.98),rgba(7,11,18,.98))"}}>
+            {[
+              ["Valor de Implementação",totals.valorImplementacao,C.orange],
+              ["Valor Mensal",totals.valorMensal,C.neon],
+              ["Valor por Projeto",totals.valorProjeto,C.gold],
+              ["Valor de Tabela",totals.valorTabela,C.white],
+              ["Desconto",totals.descontoTotal,C.danger],
+              ["Valor Final",totals.valorFinal,C.success]
+            ].map(([label,value,color])=>(
+              <div key={label} style={{display:"flex",justifyContent:"space-between",gap:10,padding:"10px 0",borderBottom:label==="Valor Final"?"none":`1px solid ${C.border}`}}>
+                <span style={{fontSize:12,color:C.dim}}>{label}</span>
+                <strong style={{fontSize:label==="Valor Final"?20:14,color}}>{moneyBR(value)}</strong>
+              </div>
+            ))}
+          </div>
+
+          <button style={{...btn("primary","lg"),width:"100%"}} onClick={onSave}>Salvar Proposta</button>
+          <button style={{...btn("neon"),width:"100%"}} onClick={onPdfDraft}>Gerar PDF Premium</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CoralFilmsApp(){
   const [splash,setSplash]  = useState(true);
   const [screen,setScreen]  = useState("list");
@@ -1097,6 +2230,18 @@ function CoralFilmsApp(){
   const [genErr,setGenErr]  = useState("");
   const [loadingList,setLoadingList] = useState(true);
   const [feedback,setFeedback] = useState(null);
+  const [leads,setLeads] = useState([]);
+  const [services,setServices] = useState([]);
+  const [proposals,setProposals] = useState([]);
+  const [proposalItems,setProposalItems] = useState([]);
+  const [commercialLoading,setCommercialLoading] = useState(true);
+  const [leadForm,setLeadForm] = useState(emptyLeadForm());
+  const [editingLead,setEditingLead] = useState(null);
+  const [leadFilters,setLeadFilters] = useState({search:"",status:"Todos",sort:"created_desc"});
+  const [serviceForm,setServiceForm] = useState(emptyServiceForm());
+  const [editingService,setEditingService] = useState(null);
+  const [proposalForm,setProposalForm] = useState(emptyProposalForm());
+  const [editingProposal,setEditingProposal] = useState(null);
   const fileRef             = useRef(null);
   const finalFileRef        = useRef(null);
 
@@ -1119,6 +2264,7 @@ function CoralFilmsApp(){
 
   useEffect(()=>{
     buscarPlanos();
+    buscarComercial();
   },[]);
 
   useEffect(()=>{
@@ -1337,6 +2483,350 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
   const updApprovalLink = (i,k,v)=>setForm(f=>({...f,approvalLinks:(f.approvalLinks||[]).map((l,li)=>li===i?{...l,[k]:v}:l)}));
   const delApprovalLink = (i)=>setForm(f=>({...f,approvalLinks:(f.approvalLinks||[]).filter((_,li)=>li!==i)}));
 
+
+  async function buscarComercial(){
+    setCommercialLoading(true);
+    const data = await dbGetCommercial();
+    setLeads(data.leads || []);
+    setServices(data.services || []);
+    setProposals(data.proposals || []);
+    setProposalItems(data.items || []);
+    setCommercialLoading(false);
+  }
+
+  const persistCommercial = async(next)=>{
+    const normalized = {
+      leads:(next.leads || leads).map(normalizeLead),
+      services:(next.services || services).map(normalizeService),
+      proposals:(next.proposals || proposals).map(normalizeProposal),
+      items:(next.items || proposalItems).map(normalizeProposalItem)
+    };
+    setLeads(normalized.leads);
+    setServices(normalized.services);
+    setProposals(normalized.proposals);
+    setProposalItems(normalized.items);
+    await dbSetCommercial(normalized);
+    return normalized;
+  };
+
+  const goCommercial = (target="commercial")=>{
+    setScreen(target);
+  };
+
+  const startNewLead = ()=>{
+    setLeadForm(emptyLeadForm());
+    setEditingLead(null);
+  };
+
+  const editLead = (lead)=>{
+    setLeadForm(normalizeLead(lead));
+    setEditingLead(lead.id);
+  };
+
+  const saveLead = async()=>{
+    if(!leadForm.empresa.trim()) return alert("Empresa é obrigatória.");
+    let lead = normalizeLead({
+      ...leadForm,
+      id:editingLead || leadForm.id || newLocalId(),
+      updatedAt:new Date().toISOString()
+    });
+
+    const cloud = await salvarLeadSupabase(lead);
+    if(cloud?.ok && cloud.data) lead = cloud.data;
+
+    const exists = leads.some(l=>String(l.id)===String(editingLead || lead.id) || (lead.supabaseId && String(l.supabaseId)===String(lead.supabaseId)));
+    const nextLeads = exists
+      ? leads.map(l=>(String(l.id)===String(editingLead || lead.id) || (lead.supabaseId && String(l.supabaseId)===String(lead.supabaseId))) ? lead : l)
+      : [lead, ...leads];
+
+    await persistCommercial({leads:nextLeads,services,proposals,items:proposalItems});
+    setLeadForm(emptyLeadForm());
+    setEditingLead(null);
+    showFeedback("Lead salvo com sucesso.","success");
+  };
+
+  const deleteLead = async(id)=>{
+    if(!confirm("Excluir este lead? As propostas já criadas continuarão no histórico.")) return;
+    const lead = leads.find(l=>String(l.id)===String(id));
+    await deleteSupabaseRow("coral_leads", lead?.supabaseId || (isCloudId(id) ? id : null));
+    await persistCommercial({leads:leads.filter(l=>String(l.id)!==String(id)),services,proposals,items:proposalItems});
+    showFeedback("Lead excluído.","success");
+  };
+
+  const startNewService = ()=>{
+    setServiceForm({...emptyServiceForm(),ordemExibicao:(services.length||0)+1});
+    setEditingService(null);
+  };
+
+  const editService = (service)=>{
+    setServiceForm(normalizeService(service));
+    setEditingService(service.id);
+  };
+
+  const saveService = async()=>{
+    if(!serviceForm.nome.trim()) return alert("Nome do serviço é obrigatório.");
+    let service = normalizeService({
+      ...serviceForm,
+      id:editingService || serviceForm.id || newLocalId(),
+      updatedAt:new Date().toISOString()
+    });
+
+    const cloud = await salvarServiceSupabase(service);
+    if(cloud?.ok && cloud.data) service = cloud.data;
+
+    const exists = services.some(s=>String(s.id)===String(editingService || service.id) || (service.supabaseId && String(s.supabaseId)===String(service.supabaseId)));
+    const nextServices = exists
+      ? services.map(s=>(String(s.id)===String(editingService || service.id) || (service.supabaseId && String(s.supabaseId)===String(service.supabaseId))) ? service : s)
+      : [...services, service];
+
+    await persistCommercial({leads,services:nextServices,proposals,items:proposalItems});
+    setServiceForm(emptyServiceForm());
+    setEditingService(null);
+    showFeedback("Serviço salvo com sucesso.","success");
+  };
+
+  const deleteService = async(id)=>{
+    if(!confirm("Excluir este serviço do catálogo? Propostas antigas manterão o histórico do item.")) return;
+    const service = services.find(s=>String(s.id)===String(id));
+    await deleteSupabaseRow("coral_services", service?.supabaseId || (isCloudId(id) ? id : null));
+    await persistCommercial({leads,services:services.filter(s=>String(s.id)!==String(id)),proposals,items:proposalItems});
+    showFeedback("Serviço excluído.","success");
+  };
+
+  const startNewProposal = ()=>{
+    setProposalForm(emptyProposalForm());
+    setEditingProposal(null);
+    setScreen("commercial-proposal-form");
+  };
+
+  const editProposal = (proposal)=>{
+    const related = proposalItems.filter(item=>String(item.proposalId)===String(proposal.id) || (proposal.supabaseId && String(item.proposalId)===String(proposal.supabaseId)));
+    setProposalForm({
+      ...emptyProposalForm(),
+      ...normalizeProposal(proposal),
+      items:related.length ? related : []
+    });
+    setEditingProposal(proposal.id);
+    setScreen("commercial-proposal-form");
+  };
+
+  const onProposalLeadChange = (leadId)=>{
+    const lead = leads.find(l=>String(l.id)===String(leadId));
+    if(!lead){
+      setProposalForm(f=>({...f,leadId:""}));
+      return;
+    }
+    setProposalForm(f=>({
+      ...f,
+      leadId:lead.id,
+      leadSupabaseId:lead.supabaseId || (isCloudId(lead.id) ? lead.id : null),
+      empresa:lead.empresa || f.empresa,
+      responsavel:lead.responsavel || f.responsavel,
+      telefone:lead.telefone || f.telefone,
+      whatsapp:lead.whatsapp || f.whatsapp,
+      email:lead.email || f.email,
+      instagram:lead.instagram || f.instagram,
+      cidade:lead.cidade || f.cidade,
+      segmento:lead.segmento || f.segmento,
+      objetivos:f.objetivos || `Proposta comercial para estruturar presença digital, produção de conteúdo e comunicação da ${lead.empresa}.`
+    }));
+  };
+
+  const toggleProposalService = (service)=>{
+    setProposalForm(f=>{
+      const current = f.items || [];
+      const exists = current.some(item=>String(item.serviceId)===String(service.id));
+      if(exists){
+        return {...f,items:current.filter(item=>String(item.serviceId)!==String(service.id))};
+      }
+      const nextItem = {
+        id:newLocalId(),
+        proposalId:f.id || "",
+        serviceId:service.id,
+        serviceName:service.nome,
+        categoria:service.categoria,
+        descricao:service.descricao,
+        tipo:service.tipo,
+        quantidade:1,
+        valorUnitario:toNumber(service.valorPadrao),
+        ordem:current.length+1
+      };
+      return {...f,items:[...current,nextItem]};
+    });
+  };
+
+  const updateProposalItem = (index,key,value)=>{
+    setProposalForm(f=>({
+      ...f,
+      items:(f.items||[]).map((item,i)=>i===index?{...item,[key]:value}:item)
+    }));
+  };
+
+  const removeProposalItem = (index)=>{
+    setProposalForm(f=>({
+      ...f,
+      items:(f.items||[]).filter((_,i)=>i!==index)
+    }));
+  };
+
+  const saveProposal = async()=>{
+    if(!proposalForm.empresa.trim()) return alert("Informe a empresa da proposta.");
+    if((proposalForm.items||[]).length===0) return alert("Selecione pelo menos um serviço do catálogo.");
+
+    let proposal = normalizeProposal({
+      ...proposalForm,
+      id:editingProposal || proposalForm.id || newLocalId(),
+      updatedAt:new Date().toISOString()
+    });
+    const totals = proposalTotals(proposalForm.items, proposal.descontoValor, proposal.descontoPercentual);
+    proposal = {
+      ...proposal,
+      valorTabela:totals.valorTabela,
+      descontoTotal:totals.descontoTotal,
+      valorFinal:totals.valorFinal
+    };
+
+    let itemsToSave = (proposalForm.items||[]).map((item,index)=>normalizeProposalItem({
+      ...item,
+      id:item.id || newLocalId(),
+      proposalId:proposal.id,
+      ordem:index+1
+    }));
+
+    const cloud = await salvarProposalSupabase(proposal,itemsToSave);
+    if(cloud?.ok && cloud.data){
+      const oldProposalId = proposal.id;
+      proposal = {
+        ...cloud.data,
+        leadId:proposal.leadId,
+        leadSupabaseId:proposal.leadSupabaseId,
+        valorTabela:totals.valorTabela,
+        descontoTotal:totals.descontoTotal,
+        valorFinal:totals.valorFinal
+      };
+      itemsToSave = itemsToSave.map(item=>({...item,proposalId:proposal.id,oldProposalId}));
+    }
+
+    const proposalExists = proposals.some(p=>String(p.id)===String(editingProposal || proposal.id) || (proposal.supabaseId && String(p.supabaseId)===String(proposal.supabaseId)));
+    const nextProposals = proposalExists
+      ? proposals.map(p=>(String(p.id)===String(editingProposal || proposal.id) || (proposal.supabaseId && String(p.supabaseId)===String(proposal.supabaseId))) ? proposal : p)
+      : [proposal, ...proposals];
+
+    const removeIds = [editingProposal, proposal.id, proposal.supabaseId].filter(Boolean).map(String);
+    const oldIds = itemsToSave.map(i=>i.oldProposalId).filter(Boolean).map(String);
+    const allRemoveIds = [...new Set([...removeIds,...oldIds])];
+    const nextItems = [
+      ...proposalItems.filter(item=>!allRemoveIds.includes(String(item.proposalId))),
+      ...itemsToSave.map(({oldProposalId,...item})=>item)
+    ];
+
+    let nextLeads = leads;
+    const lead = leads.find(l=>String(l.id)===String(proposal.leadId));
+    if(lead && !["Fechado","Perdido","Cliente Ativo"].includes(lead.status)){
+      const updatedLead = {...lead,status:"Proposta Enviada",updatedAt:new Date().toISOString()};
+      const cloudLead = await salvarLeadSupabase(updatedLead);
+      const finalLead = cloudLead?.ok && cloudLead.data ? cloudLead.data : updatedLead;
+      nextLeads = leads.map(l=>String(l.id)===String(lead.id)?finalLead:l);
+    }
+
+    await persistCommercial({leads:nextLeads,services,proposals:nextProposals,items:nextItems});
+    setProposalForm(emptyProposalForm());
+    setEditingProposal(null);
+    setScreen("commercial-proposals");
+    showFeedback("Proposta salva com sucesso.","success");
+  };
+
+  const deleteProposal = async(id)=>{
+    if(!confirm("Excluir esta proposta?")) return;
+    const proposal = proposals.find(p=>String(p.id)===String(id));
+    await deleteSupabaseRow("coral_propostas", proposal?.supabaseId || (isCloudId(id) ? id : null));
+    await persistCommercial({
+      leads,
+      services,
+      proposals:proposals.filter(p=>String(p.id)!==String(id)),
+      items:proposalItems.filter(item=>String(item.proposalId)!==String(id) && String(item.proposalId)!==String(proposal?.supabaseId||""))
+    });
+    showFeedback("Proposta excluída.","success");
+  };
+
+  const proposalPdf = (proposal)=>{
+    const related = proposalItems.filter(item=>String(item.proposalId)===String(proposal.id) || (proposal.supabaseId && String(item.proposalId)===String(proposal.supabaseId)));
+    const lead = leads.find(l=>String(l.id)===String(proposal.leadId));
+    openCommercialProposalPdf(proposal, related, lead);
+  };
+
+  const proposalDraftPdf = ()=>{
+    const draft = normalizeProposal({
+      ...proposalForm,
+      id:proposalForm.id || editingProposal || "preview"
+    });
+    const lead = leads.find(l=>String(l.id)===String(draft.leadId));
+    openCommercialProposalPdf(draft, proposalForm.items || [], lead);
+  };
+
+  const convertProposalToClient = async(proposal)=>{
+    const related = proposalItems.filter(item=>String(item.proposalId)===String(proposal.id) || (proposal.supabaseId && String(item.proposalId)===String(proposal.supabaseId)));
+    if(!related.length){
+      if(!confirm("Esta proposta não tem itens vinculados. Deseja converter mesmo assim?")) return;
+    }
+    if(!confirm("Converter esta proposta em cliente ativo? O cadastro será criado no módulo atual sem solicitar novo cadastro.")) return;
+
+    const existing = clients.find(c=>String(c.name||"").trim().toLowerCase()===String(proposal.empresa||"").trim().toLowerCase());
+    let client = existing ? {
+      ...existing,
+      niche:existing.niche || proposal.segmento || "",
+      instagram:existing.instagram || String(proposal.instagram||"").replace("@",""),
+      notes:existing.notes || proposal.objetivos || "",
+      extra:[existing.extra,`Convertido pelo módulo Comercial em ${new Date().toLocaleDateString("pt-BR")}. Valor final da proposta: ${moneyBR(proposal.valorFinal)}.`].filter(Boolean).join("\n\n")
+    } : {
+      id:newLocalId(),
+      name:proposal.empresa || "Cliente sem nome",
+      agency:"Coral Films",
+      niche:proposal.segmento || "",
+      instagram:String(proposal.instagram||"").replace("@",""),
+      month:new Date().getMonth()+1,
+      year:new Date().getFullYear(),
+      notes:proposal.objetivos || `Cliente convertido a partir da proposta comercial ${proposal.empresa}.`,
+      extra:`Origem: Módulo Comercial do ${APP_NAME}.\nResponsável: ${proposal.responsavel || "não informado"}\nWhatsApp: ${proposal.whatsapp || "não informado"}\nValor final da proposta: ${moneyBR(proposal.valorFinal)}.`,
+      links:[],
+      images:[],
+      approvalLinks:[{type:"Vídeo",label:"",url:""}],
+      approvalImages:[],
+      plans:[],
+      createdAt:new Date().toISOString(),
+      commercialProposalId:proposal.id
+    };
+
+    const cloudClient = await salvarClienteSupabase(client,null);
+    if(cloudClient?.ok && cloudClient.id){
+      client = {...client,id:String(cloudClient.id),supabaseId:cloudClient.id,importedFromSupabase:true};
+    }
+
+    const nextClients = existing
+      ? clients.map(c=>String(c.id)===String(existing.id)?client:c)
+      : [client, ...clients];
+    await persist(nextClients);
+
+    const updatedProposal = {...proposal,status:"Convertida",updatedAt:new Date().toISOString()};
+    await salvarProposalSupabase(updatedProposal, related);
+    const nextProposals = proposals.map(p=>String(p.id)===String(proposal.id)?updatedProposal:p);
+
+    let nextLeads = leads;
+    const lead = leads.find(l=>String(l.id)===String(proposal.leadId));
+    if(lead){
+      const updatedLead = {...lead,status:"Cliente Ativo",updatedAt:new Date().toISOString()};
+      const cloudLead = await salvarLeadSupabase(updatedLead);
+      const finalLead = cloudLead?.ok && cloudLead.data ? cloudLead.data : updatedLead;
+      nextLeads = leads.map(l=>String(l.id)===String(lead.id)?finalLead:l);
+    }
+
+    await persistCommercial({leads:nextLeads,services,proposals:nextProposals,items:proposalItems});
+    showFeedback("Proposta convertida em cliente ativo.","success");
+    setScreen("list");
+    buscarPlanos();
+  };
+
+
   const wrap={maxWidth:1100,margin:"0 auto",padding:"28px 20px"};
 
   return(
@@ -1373,7 +2863,7 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
         .header-logo img{width:100%;height:100%;object-fit:contain;mix-blend-mode:screen;filter:brightness(1.12)}
         .header-brand strong{display:block;font-size:12px;letter-spacing:4px;color:${C.white};font-weight:900}
         .header-brand span{display:block;margin-top:3px;font-size:10px;letter-spacing:2px;color:${C.dim};text-transform:uppercase}
-        .header-actions{display:flex;gap:10px;align-items:center}
+        .header-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 
         .btn-new-client,.btn-generate{border:0;cursor:pointer;color:#090909;font-weight:950;text-transform:uppercase;letter-spacing:1.4px;background:linear-gradient(135deg,${C.orange},${C.orange2});box-shadow:0 0 22px rgba(249,115,22,.35),inset 0 1px 0 rgba(255,255,255,.28)}
         .btn-new-client{border-radius:999px;padding:11px 18px;font-size:12px}
@@ -1435,15 +2925,16 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
       `}</style>
 
       {splash && <LoadingScreen onDone={()=>setSplash(false)}/>}
-      <Header screen={screen} onBack={()=>setScreen("list")} onNew={startNew}/>
+      <Header screen={screen} onBack={()=>setScreen("list")} onNew={startNew} onCommercial={()=>setScreen("commercial")} onNavigate={goCommercial}/>
       {feedback && <div className={`toast ${feedback.type==="error" ? "error" : ""}`}>{feedback.message}</div>}
 
       {/* ── LIST ── */}
       {screen==="list"&&(
         <div style={wrap}>
           <div style={{marginBottom:28,animation:"fadeIn .4s ease-out"}}>
-            <div style={{fontSize:10,fontWeight:800,letterSpacing:4,color:C.orange,textTransform:"uppercase",marginBottom:5}}>Dashboard</div>
+            <div style={{fontSize:10,fontWeight:800,letterSpacing:4,color:C.orange,textTransform:"uppercase",marginBottom:5}}>{APP_NAME}</div>
             <h1 style={{fontSize:28,fontWeight:900,letterSpacing:-1,margin:0}}>Clientes <span style={{color:C.orange}}>Cadastrados</span></h1>
+            <p style={{fontSize:12,color:C.dim,lineHeight:1.7,margin:"8px 0 0"}}>{APP_SUBTITLE}</p>
             <div style={{width:44,height:3,background:C.orange,marginTop:10,borderRadius:1,boxShadow:C.orangeG}}/>
             {STORAGE_MODE_LABEL && <div style={{marginTop:10,fontSize:11,color:C.dim,lineHeight:1.6}}>{STORAGE_MODE_LABEL}</div>}
           </div>
@@ -1474,6 +2965,88 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
             </div>
           )}
         </div>
+      )}
+
+
+      {/* ── COMERCIAL ── */}
+      {screen==="commercial"&&(
+        commercialLoading ? (
+          <div style={wrap}>
+            <div style={{...ncrd,textAlign:"center",padding:46}}>
+              <div style={{fontSize:32,marginBottom:12}}>⚙️</div>
+              <p style={{color:C.dim,margin:0,fontSize:14}}>Carregando módulo comercial...</p>
+            </div>
+          </div>
+        ) : (
+          <CommercialHome
+            leads={leads}
+            services={services}
+            proposals={proposals}
+            onNavigate={goCommercial}
+          />
+        )
+      )}
+
+      {screen==="commercial-leads"&&(
+        <LeadsView
+          leads={leads}
+          form={leadForm}
+          setForm={setLeadForm}
+          editingLead={editingLead}
+          filters={leadFilters}
+          setFilters={setLeadFilters}
+          onSave={saveLead}
+          onEdit={editLead}
+          onDelete={deleteLead}
+          onNew={startNewLead}
+          onNavigate={goCommercial}
+        />
+      )}
+
+      {screen==="commercial-services"&&(
+        <ServicesCatalogView
+          services={services}
+          form={serviceForm}
+          setForm={setServiceForm}
+          editingService={editingService}
+          onSave={saveService}
+          onEdit={editService}
+          onDelete={deleteService}
+          onNew={startNewService}
+          onNavigate={goCommercial}
+        />
+      )}
+
+      {screen==="commercial-proposals"&&(
+        <ProposalsView
+          proposals={proposals}
+          items={proposalItems}
+          leads={leads}
+          onNew={startNewProposal}
+          onEdit={editProposal}
+          onPdf={proposalPdf}
+          onConvert={convertProposalToClient}
+          onDelete={deleteProposal}
+          onNavigate={goCommercial}
+        />
+      )}
+
+      {screen==="commercial-proposal-form"&&(
+        <ProposalFormView
+          form={proposalForm}
+          setForm={setProposalForm}
+          leads={leads}
+          services={services}
+          onLeadChange={onProposalLeadChange}
+          onToggleService={toggleProposalService}
+          onUpdateItem={updateProposalItem}
+          onRemoveItem={removeProposalItem}
+          onSave={saveProposal}
+          onCancel={()=>setScreen("commercial-proposals")}
+          onPdfDraft={proposalDraftPdf}
+          onNavigate={goCommercial}
+          editingProposal={editingProposal}
+        />
       )}
 
       {/* ── FORM ── */}
@@ -1648,6 +3221,11 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
           onEditClient={()=>startEdit(active)}
         />
       )}
+
+      <footer style={{maxWidth:1100,margin:"0 auto",padding:"22px 20px 34px",color:C.muted,fontSize:11,letterSpacing:1.4,textTransform:"uppercase",display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+        <span>{APP_NAME}</span>
+        <span>{APP_SUBTITLE}</span>
+      </footer>
     </div>
   );
 }
