@@ -4,8 +4,9 @@ import { supabase } from "./supabase";
 
 const APP_NAME = "Coral Hub";
 const APP_SUBTITLE = "Sistema Inteligente de Gestão da Coral Films";
-const APP_VERSION = "v3.2";
+const APP_VERSION = "v3.4";
 const SIDE_BANNER = "/banner-lateral.png";
+const APP_WATERMARK = "/bg-watermark.png";
 
 // ─── Tokens ────────────────────────────────────────────────────────────────────
 const C = {
@@ -596,6 +597,8 @@ function openCommercialProposalPdf(proposal,items=[],lead=null){
         radial-gradient(circle at 20% 0%,rgba(249,115,22,.22),transparent 34%),
         radial-gradient(circle at 88% 12%,rgba(0,240,255,.18),transparent 32%),
         linear-gradient(180deg,#07101a,#05070b 60%,#020409)}
+      .page::before{content:"";position:absolute;inset:0;background:linear-gradient(rgba(5,7,11,.30),rgba(5,7,11,.52)),url("${APP_WATERMARK}") center/cover no-repeat;opacity:.35;z-index:0}
+      .page>*{position:relative;z-index:1}
       .page:last-child{page-break-after:auto}
       .grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:13mm 13mm;mask-image:linear-gradient(to bottom,rgba(0,0,0,.85),transparent 80%)}
       .content{position:relative;z-index:1}
@@ -1124,7 +1127,7 @@ function openPremiumPdf(client,plan,mode="plan"){
     .doc{padding:12px 0 28px}
     .page{width:210mm;min-height:297mm;margin:0 auto 12px;background:#090909;position:relative;overflow:hidden;box-shadow:0 18px 60px rgba(0,0,0,.28)}
     .page-inner{padding:17mm 16mm 16mm}
-    .page::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at top right, rgba(249,115,22,.18), transparent 32%),linear-gradient(180deg,#111 0%,#090909 75%)}
+    .page::before{content:"";position:absolute;inset:0;background:linear-gradient(rgba(9,9,9,.32),rgba(9,9,9,.50)),url("${APP_WATERMARK}") center/cover no-repeat,radial-gradient(circle at top right, rgba(249,115,22,.18), transparent 32%),linear-gradient(180deg,#111 0%,#090909 75%);opacity:.35;z-index:0}.page>*{position:relative;z-index:1}
     .page::after{content:"";position:absolute;inset:8mm;border:1px solid rgba(249,115,22,.17);pointer-events:none;border-radius:14px}
     .cover-page{display:grid;grid-template-columns:1.02fr .98fr;min-height:297mm}
     .cover-copy,.cover-visual{position:relative;z-index:1}
@@ -1442,6 +1445,11 @@ function LoadingScreen({onDone}){
       </div>
     </div>
   );
+}
+
+function AppWatermark({src}){
+  if(!src) return null;
+  return <div className="app-watermark" aria-hidden="true"/>;
 }
 
 function SideBanners({src}){
@@ -2913,7 +2921,7 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
         ::-webkit-scrollbar{width:7px;background:#070b12}
         ::-webkit-scrollbar-thumb{background:linear-gradient(${C.orange},${C.neon});border-radius:999px}
 
-        .app-shell{min-height:100vh;background:
+        .app-shell{position:relative;min-height:100vh;background:
           radial-gradient(circle at 12% 0%,rgba(249,115,22,.14),transparent 32%),
           radial-gradient(circle at 88% 8%,rgba(0,240,255,.12),transparent 30%),
           linear-gradient(180deg,#05070b 0%,#080d15 48%,#05070b 100%);
@@ -3005,6 +3013,8 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
         .mobile-drawer-actions button{min-height:3rem;border-radius:1rem}
         .responsive-scroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
 
+        .app-watermark{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(5,7,11,.28),rgba(5,7,11,.46)),url("/bg-watermark.png");background-size:cover;background-position:center;background-repeat:no-repeat;opacity:.35;mix-blend-mode:normal}
+        .app-shell > header,.app-shell > footer,.app-shell > div:not(.app-watermark){position:relative;z-index:2}
         .side-banner{display:none}
         @media(min-width:84rem){
           .side-banner{display:block;position:fixed;top:5.75rem;bottom:1rem;width:clamp(5.5rem,calc((100vw - 72rem)/2 - 1.25rem),16rem);z-index:1;pointer-events:none;opacity:.92}
@@ -3068,6 +3078,7 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
 
       {splash && <LoadingScreen onDone={()=>setSplash(false)}/>}
       <Header screen={screen} onBack={()=>setScreen("list")} onNew={startNew} onCommercial={()=>setScreen("commercial")} onNavigate={goCommercial}/>
+      <AppWatermark src={APP_WATERMARK}/>
       <SideBanners src={SIDE_BANNER}/>
       {feedback && <div className={`toast ${feedback.type==="error" ? "error" : ""}`}>{feedback.message}</div>}
 
