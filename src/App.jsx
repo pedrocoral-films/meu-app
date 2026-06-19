@@ -5,7 +5,7 @@ import { supabase } from "./supabase";
 
 const APP_NAME = "Coral Hub";
 const APP_SUBTITLE = "Sistema Inteligente de Gestão da Coral Films";
-const APP_VERSION = "v3.0";
+const APP_VERSION = "v3.1";
 
 // ─── Tokens ────────────────────────────────────────────────────────────────────
 const C = {
@@ -1454,20 +1454,33 @@ function Header({screen,onBack,onNew,onCommercial,onNavigate}){
     if(typeof fn === "function") fn();
   };
 
-  const commercialButtons = isCommercial ? (
+  const desktopButtons = (
     <>
-      <button className="btn-glass w-full md:w-auto" onClick={()=>closeAndRun(()=>onNavigate("commercial-leads"))}>Leads</button>
-      <button className="btn-glass w-full md:w-auto" onClick={()=>closeAndRun(()=>onNavigate("commercial-proposals"))}>Propostas</button>
-      <button className="btn-glass w-full md:w-auto" onClick={()=>closeAndRun(()=>onNavigate("commercial-services"))}>Serviços</button>
+      {screen!=="list"&&<button className="btn-glass" onClick={()=>closeAndRun(onBack)}>← Dashboard</button>}
+      {isCommercial&&(
+        <>
+          <button className="btn-glass" onClick={()=>closeAndRun(()=>onNavigate("commercial-leads"))}>Leads</button>
+          <button className="btn-glass" onClick={()=>closeAndRun(()=>onNavigate("commercial-proposals"))}>Propostas</button>
+          <button className="btn-glass" onClick={()=>closeAndRun(()=>onNavigate("commercial-services"))}>Serviços</button>
+        </>
+      )}
+      {screen==="list"&&<button className="btn-glass" onClick={()=>closeAndRun(onCommercial)}>Comercial</button>}
+      {screen==="list"&&<button className="btn-new-client" onClick={()=>closeAndRun(onNew)}>+ Novo Cliente</button>}
     </>
-  ) : null;
+  );
 
-  const mainButtons = (
+  const drawerButtons = (
     <>
-      {screen!=="list"&&<button className="btn-glass w-full md:w-auto" onClick={()=>closeAndRun(onBack)}>← Dashboard</button>}
-      {commercialButtons}
-      {screen==="list"&&<button className="btn-glass w-full md:w-auto" onClick={()=>closeAndRun(onCommercial)}>Comercial</button>}
-      {screen==="list"&&<button className="btn-new-client w-full md:w-auto" onClick={()=>closeAndRun(onNew)}>+ Novo Cliente</button>}
+      {screen!=="list"&&<button className="btn-glass w-full" onClick={()=>closeAndRun(onBack)}>← Dashboard</button>}
+      {isCommercial&&(
+        <>
+          <button className="btn-glass w-full" onClick={()=>closeAndRun(()=>onNavigate("commercial-leads"))}>Leads</button>
+          <button className="btn-glass w-full" onClick={()=>closeAndRun(()=>onNavigate("commercial-proposals"))}>Propostas</button>
+          <button className="btn-glass w-full" onClick={()=>closeAndRun(()=>onNavigate("commercial-services"))}>Serviços</button>
+        </>
+      )}
+      {screen==="list"&&<button className="btn-glass w-full" onClick={()=>closeAndRun(onCommercial)}>Comercial</button>}
+      {screen==="list"&&<button className="btn-new-client w-full" onClick={()=>closeAndRun(onNew)}>+ Novo Cliente</button>}
     </>
   );
 
@@ -1483,12 +1496,12 @@ function Header({screen,onBack,onNew,onCommercial,onNavigate}){
         </div>
       </div>
 
-      <nav className="desktop-actions hidden md:flex" aria-label="Menu principal">
-        {mainButtons}
+      <nav className="desktop-actions" aria-label="Menu principal">
+        {desktopButtons}
       </nav>
 
       <button
-        className="mobile-menu-toggle md:hidden"
+        className="mobile-menu-toggle"
         aria-label={drawerOpen ? "Fechar menu" : "Abrir menu"}
         aria-expanded={drawerOpen}
         onClick={()=>setDrawerOpen(v=>!v)}
@@ -1497,13 +1510,13 @@ function Header({screen,onBack,onNew,onCommercial,onNavigate}){
       </button>
 
       {drawerOpen&&(
-        <div className="mobile-drawer md:hidden">
+        <div className="mobile-drawer">
           <div className="mobile-drawer-head">
             <span>Menu</span>
             <small>{APP_VERSION}</small>
           </div>
           <div className="mobile-drawer-actions">
-            {mainButtons}
+            {drawerButtons}
           </div>
         </div>
       )}
@@ -2968,7 +2981,9 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
         .top-0{top:0}
         .z-50{z-index:50}
 
-        .desktop-actions{display:none;gap:.625rem;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+        .desktop-actions{display:none;gap:.625rem;align-items:center;justify-content:flex-end;flex-wrap:wrap;flex:0 1 auto}
+        .desktop-actions .btn-glass,.desktop-actions .btn-new-client{width:auto!important;min-width:8.75rem;max-width:16rem;white-space:nowrap}
+        .desktop-actions .btn-new-client{min-width:14rem}
         .mobile-menu-toggle{display:inline-flex;align-items:center;justify-content:center;width:2.875rem;height:2.875rem;border-radius:1rem;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.055);color:${C.white};font-size:1.35rem;font-weight:950;line-height:1}
         .mobile-drawer{position:absolute;top:calc(100% + .55rem);left:.75rem;right:.75rem;z-index:120;padding:1rem;border-radius:1.25rem;border:1px solid rgba(0,240,255,.22);background:linear-gradient(145deg,rgba(10,15,24,.98),rgba(4,7,12,.96));backdrop-filter:blur(18px);box-shadow:0 1.5rem 4rem rgba(0,0,0,.45),0 0 2rem rgba(0,240,255,.10);animation:fadeIn .18s ease-out}
         .mobile-drawer-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;color:${C.dim};font-size:.7rem;font-weight:900;text-transform:uppercase;letter-spacing:.16rem}
@@ -2977,22 +2992,22 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
         .responsive-scroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
 
         @media(min-width:40rem){
-          .sm\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+          .sm\\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
         }
         @media(min-width:48rem){
-          .md\:flex{display:flex}
-          .md\:hidden{display:none!important}
-          .md\:w-auto{width:auto}
-          .md\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
-          .md\:flex-row{flex-direction:row}
+          .md\\:flex{display:flex}
+          .md\\:hidden{display:none!important}
+          .md\\:w-auto{width:auto}
+          .md\\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+          .md\\:flex-row{flex-direction:row}
           .desktop-actions{display:flex!important}
           .mobile-menu-toggle,.mobile-drawer{display:none!important}
         }
         @media(min-width:64rem){
-          .lg\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+          .lg\\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
         }
         @media(min-width:80rem){
-          .xl\:grid-cols-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+          .xl\\:grid-cols-4{grid-template-columns:repeat(4,minmax(0,1fr))}
         }
 
         @media(max-width:47.99rem){
@@ -3003,7 +3018,7 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
           .header-logo{width:2.65rem;height:2.65rem;border-radius:.9rem}
           .header-brand strong{font-size:.72rem;letter-spacing:.18rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
           .header-brand span{font-size:.58rem;letter-spacing:.08rem;max-width:13rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-          .header-actions{display:none!important}
+          .header-actions,.desktop-actions{display:none!important}
           .btn-new-client,.btn-glass,.btn-generate{width:100%;min-height:3rem;border-radius:1rem;font-size:.72rem}
           .btn-icon,.btn-danger-modern{width:3rem;min-width:3rem;height:3rem;border-radius:1rem}
           div[style*="grid-template-columns"]{grid-template-columns:1fr!important}
@@ -3012,7 +3027,9 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
           textarea{min-height:5.25rem}
           table{min-width:42rem}
           .client-card{border-radius:1.25rem;padding:1rem}
-          .client-actions{display:grid!important;grid-template-columns:1fr!important}
+          .client-actions{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:.75rem!important;align-items:center}
+          .client-actions .btn-generate{grid-column:1/-1;width:100%;min-height:3.25rem;border-radius:1rem}
+          .client-actions .btn-icon,.client-actions .btn-danger-modern{width:100%!important;min-width:0!important;height:3.25rem!important;border-radius:1rem}
           .toast{top:5.2rem;left:1rem;right:1rem;max-width:none}
         }
 
@@ -3022,7 +3039,6 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
           .header-brand strong{font-size:11px;letter-spacing:3px}
           .header-brand span{font-size:9px}
           .btn-new-client,.btn-glass{padding:10px 12px;font-size:11px}
-          .client-actions{flex-wrap:wrap}
           .btn-generate{min-width:100%}
           button{min-height:38px}
         }
