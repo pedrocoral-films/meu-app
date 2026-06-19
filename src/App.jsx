@@ -5,6 +5,7 @@ import { supabase } from "./supabase";
 
 const APP_NAME = "Coral Hub";
 const APP_SUBTITLE = "Sistema Inteligente de Gestão da Coral Films";
+const APP_VERSION = "v3.0";
 
 // ─── Tokens ────────────────────────────────────────────────────────────────────
 const C = {
@@ -1445,31 +1446,67 @@ function LoadingScreen({onDone}){
 
 // ─── Header ───────────────────────────────────────────────────────────────────
 function Header({screen,onBack,onNew,onCommercial,onNavigate}){
+  const [drawerOpen,setDrawerOpen] = useState(false);
   const isCommercial = String(screen||"").startsWith("commercial");
+
+  const closeAndRun = (fn)=>{
+    setDrawerOpen(false);
+    if(typeof fn === "function") fn();
+  };
+
+  const commercialButtons = isCommercial ? (
+    <>
+      <button className="btn-glass w-full md:w-auto" onClick={()=>closeAndRun(()=>onNavigate("commercial-leads"))}>Leads</button>
+      <button className="btn-glass w-full md:w-auto" onClick={()=>closeAndRun(()=>onNavigate("commercial-proposals"))}>Propostas</button>
+      <button className="btn-glass w-full md:w-auto" onClick={()=>closeAndRun(()=>onNavigate("commercial-services"))}>Serviços</button>
+    </>
+  ) : null;
+
+  const mainButtons = (
+    <>
+      {screen!=="list"&&<button className="btn-glass w-full md:w-auto" onClick={()=>closeAndRun(onBack)}>← Dashboard</button>}
+      {commercialButtons}
+      {screen==="list"&&<button className="btn-glass w-full md:w-auto" onClick={()=>closeAndRun(onCommercial)}>Comercial</button>}
+      {screen==="list"&&<button className="btn-new-client w-full md:w-auto" onClick={()=>closeAndRun(onNew)}>+ Novo Cliente</button>}
+    </>
+  );
+
   return(
-    <header className="app-header">
-      <div className="header-brand">
-        <div className="header-logo">
+    <header className="app-header w-full sticky top-0 z-50">
+      <div className="header-brand min-w-0">
+        <div className="header-logo shrink-0">
           <img src={CORAL_LOGO} alt="Coral Hub"/>
         </div>
-        <div>
+        <div className="min-w-0">
           <strong>{APP_NAME.toUpperCase()}</strong>
           <span>{APP_SUBTITLE}</span>
         </div>
       </div>
 
-      <div className="header-actions">
-        {screen!=="list"&&<button className="btn-glass" onClick={onBack}>← Dashboard</button>}
-        {isCommercial&&(
-          <>
-            <button className="btn-glass" onClick={()=>onNavigate("commercial-leads")}>Leads</button>
-            <button className="btn-glass" onClick={()=>onNavigate("commercial-proposals")}>Propostas</button>
-            <button className="btn-glass" onClick={()=>onNavigate("commercial-services")}>Serviços</button>
-          </>
-        )}
-        {screen==="list"&&<button className="btn-glass" onClick={onCommercial}>Comercial</button>}
-        {screen==="list"&&<button className="btn-new-client" onClick={onNew}>+ Novo Cliente</button>}
-      </div>
+      <nav className="desktop-actions hidden md:flex" aria-label="Menu principal">
+        {mainButtons}
+      </nav>
+
+      <button
+        className="mobile-menu-toggle md:hidden"
+        aria-label={drawerOpen ? "Fechar menu" : "Abrir menu"}
+        aria-expanded={drawerOpen}
+        onClick={()=>setDrawerOpen(v=>!v)}
+      >
+        {drawerOpen ? "×" : "☰"}
+      </button>
+
+      {drawerOpen&&(
+        <div className="mobile-drawer md:hidden">
+          <div className="mobile-drawer-head">
+            <span>Menu</span>
+            <small>{APP_VERSION}</small>
+          </div>
+          <div className="mobile-drawer-actions">
+            {mainButtons}
+          </div>
+        </div>
+      )}
     </header>
   );
 }
@@ -1527,7 +1564,7 @@ function PlanView({client,plan,onRegen,onExportPlan,onExportFinal,onEditClient})
   const month=MONTHS[(client.month||1)-1];
   const tabs=[["strategy","📋 Estratégia"],["calendar","📅 Calendário"],["reels","🎬 Reels"],["goals","🎯 Metas"],["approval","✅ Aprovação"]];
   return(
-    <div style={{maxWidth:1100,margin:"0 auto",padding:"24px 20px"}}>
+    <div style={{maxWidth:"72rem",margin:"0 auto",padding:"24px 20px"}}>
       {/* hero card */}
       <div style={{...ocrd,marginBottom:18,background:"linear-gradient(135deg,#110d08,#0f0f0f)",position:"relative",overflow:"hidden"}}>
         <div style={{position:"absolute",top:-40,right:-40,width:200,height:200,background:C.orange,opacity:.04,borderRadius:"50%",pointerEvents:"none"}}/>
@@ -1773,14 +1810,14 @@ function CommercialHome({leads,services,proposals,onNavigate}){
   ];
 
   return(
-    <div style={{maxWidth:1100,margin:"0 auto",padding:"28px 20px",animation:"fadeIn .35s ease-out"}}>
+    <div style={{maxWidth:"72rem",margin:"0 auto",padding:"28px 20px",animation:"fadeIn .35s ease-out"}}>
       <div style={{...ocrd,marginBottom:20,background:"linear-gradient(135deg,#110d08,#07101a)"}}>
         <div style={{fontSize:10,fontWeight:900,letterSpacing:4,color:C.orange,textTransform:"uppercase",marginBottom:8}}>Módulo Comercial</div>
         <h1 style={{fontSize:30,fontWeight:950,letterSpacing:-1,margin:"0 0 8px"}}>Pipeline comercial <span style={{color:C.neon}}>Coral Hub</span></h1>
         <p style={{fontSize:13,color:C.dim,lineHeight:1.8,margin:0,maxWidth:760}}>Gerencie leads, catálogo de serviços e propostas comerciais da Coral Films sem alterar o fluxo atual de clientes e planejamentos.</p>
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:16}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,16rem),1fr))",gap:16}}>
         {menu.map(item=>(
           <button key={item.id} onClick={()=>onNavigate(item.id)} style={{...card,textAlign:"left",cursor:"pointer",borderRadius:18,background:"linear-gradient(145deg,rgba(18,26,39,.96),rgba(7,11,18,.96))"}}>
             <div style={{fontSize:34,marginBottom:14}}>{item.icon}</div>
@@ -1830,7 +1867,7 @@ function LeadsView({leads,form,setForm,editingLead,filters,setFilters,onSave,onE
     });
 
   return(
-    <div style={{maxWidth:1180,margin:"0 auto",padding:"28px 20px",animation:"fadeIn .35s ease-out"}}>
+    <div className="max-w-6xl mx-auto px-4 w-full" style={{maxWidth:"74rem",margin:"0 auto",padding:"1.5rem 1rem",animation:"fadeIn .35s ease-out"}}>
       <CommercialTopMenu current="commercial-leads" onNavigate={onNavigate}/>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:16,marginBottom:18,flexWrap:"wrap"}}>
         <div>
@@ -1840,7 +1877,7 @@ function LeadsView({leads,form,setForm,editingLead,filters,setFilters,onSave,onE
         <button style={btn("primary")} onClick={onNew}>+ Novo Lead</button>
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:"minmax(320px,420px) 1fr",gap:16,alignItems:"start"}}>
+      <div style={{display:"grid",gridTemplateColumns:"minmax(min(100%,20rem),26rem) minmax(0,1fr)",gap:16,alignItems:"start"}}>
         <div style={ocrd}>
           <div style={{fontSize:13,fontWeight:900,marginBottom:14}}>{editingLead ? "Editar Lead" : "Cadastro de Lead"}</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr",gap:10}}>
@@ -1890,7 +1927,7 @@ function LeadsView({leads,form,setForm,editingLead,filters,setFilters,onSave,onE
             </div>
           </div>
 
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:12}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,16rem),1fr))",gap:12}}>
             {filtered.map((lead,index)=>(
               <div key={lead.id} style={{...card,borderRadius:16,animation:"fadeIn .3s ease-out",animationDelay:`${index*.03}s`}}>
                 <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start"}}>
@@ -1931,7 +1968,7 @@ function ServicesCatalogView({services,form,setForm,editingService,onSave,onEdit
   const sorted = [...services].sort((a,b)=>(Number(a.ordemExibicao||0)-Number(b.ordemExibicao||0)) || String(a.nome).localeCompare(String(b.nome)));
 
   return(
-    <div style={{maxWidth:1180,margin:"0 auto",padding:"28px 20px",animation:"fadeIn .35s ease-out"}}>
+    <div className="max-w-6xl mx-auto px-4 w-full" style={{maxWidth:"74rem",margin:"0 auto",padding:"1.5rem 1rem",animation:"fadeIn .35s ease-out"}}>
       <CommercialTopMenu current="commercial-services" onNavigate={onNavigate}/>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:16,marginBottom:18,flexWrap:"wrap"}}>
         <div>
@@ -1941,7 +1978,7 @@ function ServicesCatalogView({services,form,setForm,editingService,onSave,onEdit
         <button style={btn("primary")} onClick={onNew}>+ Novo Serviço</button>
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:"minmax(320px,420px) 1fr",gap:16,alignItems:"start"}}>
+      <div style={{display:"grid",gridTemplateColumns:"minmax(min(100%,20rem),26rem) minmax(0,1fr)",gap:16,alignItems:"start"}}>
         <div style={ocrd}>
           <div style={{fontSize:13,fontWeight:900,marginBottom:14}}>{editingService ? "Editar Serviço" : "Cadastro de Serviço"}</div>
           <div style={{display:"grid",gap:10}}>
@@ -1977,7 +2014,7 @@ function ServicesCatalogView({services,form,setForm,editingService,onSave,onEdit
           </div>
         </div>
 
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(250px,1fr))",gap:12}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,16rem),1fr))",gap:12}}>
           {sorted.map(service=>(
             <div key={service.id} style={{...card,borderRadius:16,opacity:service.ativo===false ? .65 : 1}}>
               <div style={{display:"flex",justifyContent:"space-between",gap:10}}>
@@ -2005,7 +2042,7 @@ function ProposalsView({proposals,items,leads,onNew,onEdit,onPdf,onConvert,onDel
   const sorted = [...proposals].sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
 
   return(
-    <div style={{maxWidth:1180,margin:"0 auto",padding:"28px 20px",animation:"fadeIn .35s ease-out"}}>
+    <div className="max-w-6xl mx-auto px-4 w-full" style={{maxWidth:"74rem",margin:"0 auto",padding:"1.5rem 1rem",animation:"fadeIn .35s ease-out"}}>
       <CommercialTopMenu current="commercial-proposals" onNavigate={onNavigate}/>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:16,marginBottom:18,flexWrap:"wrap"}}>
         <div>
@@ -2022,7 +2059,7 @@ function ProposalsView({proposals,items,leads,onNew,onEdit,onPdf,onConvert,onDel
           <button style={btn("primary")} onClick={onNew}>Criar primeira proposta</button>
         </div>
       ):(
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))",gap:14}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,20rem),1fr))",gap:14}}>
           {sorted.map(proposal=>{
             const proposalItems = items.filter(i=>String(i.proposalId)===String(proposal.id) || String(i.proposalId)===String(proposal.supabaseId));
             const totals = proposalTotals(proposalItems, proposal.descontoValor, proposal.descontoPercentual);
@@ -2068,7 +2105,7 @@ function ProposalFormView({form,setForm,leads,services,onLeadChange,onToggleServ
   const totals = proposalTotals(form.items, form.descontoValor, form.descontoPercentual);
 
   return(
-    <div style={{maxWidth:1180,margin:"0 auto",padding:"28px 20px",animation:"fadeIn .35s ease-out"}}>
+    <div className="max-w-6xl mx-auto px-4 w-full" style={{maxWidth:"74rem",margin:"0 auto",padding:"1.5rem 1rem",animation:"fadeIn .35s ease-out"}}>
       <CommercialTopMenu current="commercial-proposals" onNavigate={onNavigate}/>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:16,marginBottom:18,flexWrap:"wrap"}}>
         <div>
@@ -2116,7 +2153,7 @@ function ProposalFormView({form,setForm,leads,services,onLeadChange,onToggleServ
               </div>
               <Tag label={`${(form.items||[]).length} selecionado(s)`} color={C.neon}/>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(210px,1fr))",gap:10}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,13rem),1fr))",gap:10}}>
               {activeServices.map(service=>{
                 const selected = selectedIds.has(String(service.id));
                 return(
@@ -2144,7 +2181,7 @@ function ProposalFormView({form,setForm,leads,services,onLeadChange,onToggleServ
           {(form.items||[]).length>0 && (
             <div style={{...card,overflowX:"auto"}}>
               <div style={{fontSize:13,fontWeight:900,marginBottom:14}}>Itens da proposta</div>
-              <table style={{width:"100%",borderCollapse:"collapse",minWidth:760}}>
+              <table style={{width:"100%",borderCollapse:"collapse",minWidth:"48rem"}}>
                 <thead>
                   <tr>{["Serviço","Descrição","Tipo","Qtd.","Valor","Total",""].map(h=><th key={h} style={{padding:"10px",fontSize:10,color:C.dim,textTransform:"uppercase",letterSpacing:1.4,textAlign:"left",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr>
                 </thead>
@@ -2827,7 +2864,7 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
   };
 
 
-  const wrap={maxWidth:1100,margin:"0 auto",padding:"28px 20px"};
+  const wrap={width:"100%",maxWidth:"72rem",margin:"0 auto",padding:"1.5rem 1rem"};
 
   return(
     <div className="app-shell">
@@ -2912,6 +2949,73 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
         .toast{position:fixed;top:84px;right:22px;z-index:2000;max-width:min(380px,calc(100vw - 44px));border-radius:16px;padding:13px 16px;font-size:13px;font-weight:800;line-height:1.45;animation:toastIn .22s ease-out;border:1px solid rgba(34,197,94,.35);background:linear-gradient(135deg,rgba(22,101,52,.92),rgba(5,46,22,.86));box-shadow:0 16px 45px rgba(0,0,0,.35),0 0 28px rgba(34,197,94,.16)}
         .toast.error{border-color:rgba(239,68,68,.45);background:linear-gradient(135deg,rgba(127,29,29,.95),rgba(69,10,10,.88));box-shadow:0 16px 45px rgba(0,0,0,.35),0 0 28px rgba(239,68,68,.18)}
 
+
+        /* ── Coral Hub v3.0: camada responsiva mobile-first + fallback Tailwind ── */
+        .w-full{width:100%}
+        .max-w-6xl{max-width:72rem}
+        .max-w-3xl{max-width:48rem}
+        .mx-auto{margin-left:auto;margin-right:auto}
+        .px-4{padding-left:1rem;padding-right:1rem}
+        .min-w-0{min-width:0}
+        .shrink-0{flex-shrink:0}
+        .hidden{display:none}
+        .flex{display:flex}
+        .grid{display:grid}
+        .gap-4{gap:1rem}
+        .grid-cols-1{grid-template-columns:1fr}
+        .flex-col{flex-direction:column}
+        .sticky{position:sticky}
+        .top-0{top:0}
+        .z-50{z-index:50}
+
+        .desktop-actions{display:none;gap:.625rem;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+        .mobile-menu-toggle{display:inline-flex;align-items:center;justify-content:center;width:2.875rem;height:2.875rem;border-radius:1rem;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.055);color:${C.white};font-size:1.35rem;font-weight:950;line-height:1}
+        .mobile-drawer{position:absolute;top:calc(100% + .55rem);left:.75rem;right:.75rem;z-index:120;padding:1rem;border-radius:1.25rem;border:1px solid rgba(0,240,255,.22);background:linear-gradient(145deg,rgba(10,15,24,.98),rgba(4,7,12,.96));backdrop-filter:blur(18px);box-shadow:0 1.5rem 4rem rgba(0,0,0,.45),0 0 2rem rgba(0,240,255,.10);animation:fadeIn .18s ease-out}
+        .mobile-drawer-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;color:${C.dim};font-size:.7rem;font-weight:900;text-transform:uppercase;letter-spacing:.16rem}
+        .mobile-drawer-actions{display:grid;grid-template-columns:1fr;gap:.625rem}
+        .mobile-drawer-actions button{min-height:3rem;border-radius:1rem}
+        .responsive-scroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+        @media(min-width:40rem){
+          .sm\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+        }
+        @media(min-width:48rem){
+          .md\:flex{display:flex}
+          .md\:hidden{display:none!important}
+          .md\:w-auto{width:auto}
+          .md\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+          .md\:flex-row{flex-direction:row}
+          .desktop-actions{display:flex!important}
+          .mobile-menu-toggle,.mobile-drawer{display:none!important}
+        }
+        @media(min-width:64rem){
+          .lg\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+        }
+        @media(min-width:80rem){
+          .xl\:grid-cols-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+        }
+
+        @media(max-width:47.99rem){
+          body{overflow-x:hidden}
+          .app-shell{overflow-x:hidden}
+          .app-header{height:auto;min-height:4.5rem;padding:.75rem 1rem;align-items:center;position:sticky}
+          .header-brand{gap:.625rem;max-width:calc(100% - 3.4rem)}
+          .header-logo{width:2.65rem;height:2.65rem;border-radius:.9rem}
+          .header-brand strong{font-size:.72rem;letter-spacing:.18rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .header-brand span{font-size:.58rem;letter-spacing:.08rem;max-width:13rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .header-actions{display:none!important}
+          .btn-new-client,.btn-glass,.btn-generate{width:100%;min-height:3rem;border-radius:1rem;font-size:.72rem}
+          .btn-icon,.btn-danger-modern{width:3rem;min-width:3rem;height:3rem;border-radius:1rem}
+          div[style*="grid-template-columns"]{grid-template-columns:1fr!important}
+          div[style*="min-width"]{min-width:0!important}
+          input,select,textarea{font-size:1rem!important;min-height:2.875rem}
+          textarea{min-height:5.25rem}
+          table{min-width:42rem}
+          .client-card{border-radius:1.25rem;padding:1rem}
+          .client-actions{display:grid!important;grid-template-columns:1fr!important}
+          .toast{top:5.2rem;left:1rem;right:1rem;max-width:none}
+        }
+
         @media(max-width:720px){
           body{overflow-x:hidden}
           .app-header{height:auto;min-height:66px;padding:12px 14px}
@@ -2950,7 +3054,7 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
               <button className="btn-new-client" onClick={startNew}>+ Criar Primeiro Cliente</button>
             </div>
           ):(
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(310px,1fr))",gap:18}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,19rem),1fr))",gap:18}}>
               {clients.map((c,ci)=>(
                 <ClientCard
                   key={c.id}
@@ -3051,7 +3155,7 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
 
       {/* ── FORM ── */}
       {screen==="form"&&(
-        <div style={{...wrap,maxWidth:740,animation:"fadeIn .35s ease-out"}}>
+        <div className="max-w-3xl mx-auto px-4 w-full" style={{...wrap,maxWidth:"46rem",animation:"fadeIn .35s ease-out"}}>
           <div style={{marginBottom:22}}>
             <div style={{fontSize:10,fontWeight:800,letterSpacing:4,color:C.orange,textTransform:"uppercase",marginBottom:5}}>{editing?"Editar":"Novo"} Cliente</div>
             <h2 style={{fontSize:22,fontWeight:900,margin:0}}>Cadastro <span style={{color:C.orange}}>de Cliente</span></h2>
@@ -3111,7 +3215,7 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
                   Toque aqui para abrir a galeria e selecionar imagens
                 </div>
               ):(
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(96px,1fr))",gap:8}}>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,6rem),1fr))",gap:8}}>
                   {form.images.map((img,i)=>(
                     <div key={i} style={{position:"relative",borderRadius:6,overflow:"hidden",aspectRatio:"1",border:`1px solid #f9731633`}}>
                       <img src={img.data} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
@@ -3142,7 +3246,7 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
                   Toque aqui para anexar as artes finais já produzidas
                 </div>
               ):(
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(96px,1fr))",gap:8,marginBottom:12}}>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,6rem),1fr))",gap:8,marginBottom:12}}>
                   {form.approvalImages.map((img,i)=>(
                     <div key={i} style={{position:"relative",borderRadius:6,overflow:"hidden",aspectRatio:"1",border:`1px solid #f9731633`}}>
                       <img src={img.data} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
@@ -3192,7 +3296,7 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
                 <div style={{fontSize:18,fontWeight:900,letterSpacing:-.5,marginBottom:8}}>Gerando Planejamento</div>
                 <div style={{fontSize:11,color:C.orange,fontWeight:700,letterSpacing:2,textTransform:"uppercase"}}>{genStep}</div>
               </div>
-              <div style={{width:280,background:C.surface,borderRadius:2,overflow:"hidden",border:`1px solid ${C.border}`}}>
+              <div style={{width:"min(100%,17.5rem)",background:C.surface,borderRadius:2,overflow:"hidden",border:`1px solid ${C.border}`}}>
                 <div style={{height:3,background:C.orange,boxShadow:C.orangeG,transition:"width 1.5s ease",width:`${genPct}%`}}/>
               </div>
             </>
@@ -3222,8 +3326,8 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
         />
       )}
 
-      <footer style={{maxWidth:1100,margin:"0 auto",padding:"22px 20px 34px",color:C.muted,fontSize:11,letterSpacing:1.4,textTransform:"uppercase",display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
-        <span>{APP_NAME}</span>
+      <footer style={{maxWidth:"72rem",margin:"0 auto",padding:"22px 20px 34px",color:C.muted,fontSize:11,letterSpacing:1.4,textTransform:"uppercase",display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+        <span>{APP_NAME} · {APP_VERSION}</span>
         <span>{APP_SUBTITLE}</span>
       </footer>
     </div>
