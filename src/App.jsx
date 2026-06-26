@@ -2494,7 +2494,7 @@ function CommercialHome({leads,services,proposals,onNavigate}){
 
   return(
     <div style={{maxWidth:"100%",margin:"0 auto",padding:"28px 20px",animation:"fadeIn .35s ease-out"}}>
-      <div style={{...ocrd,marginBottom:20,background:"linear-gradient(135deg,#110d08,#07101a)"}}>
+      <div style={{...ocrd,marginBottom:20,background:"radial-gradient(circle at 4% 0%,rgba(0,213,255,.16),transparent 30%),linear-gradient(135deg,rgba(255,255,255,.97),rgba(225,242,255,.90))"}}>
         <div style={{fontSize:10,fontWeight:900,letterSpacing:4,color:C.orange,textTransform:"uppercase",marginBottom:8}}>Módulo Comercial</div>
         <h1 style={{fontSize:30,fontWeight:950,letterSpacing:-1,margin:"0 0 8px"}}>Pipeline comercial <span style={{color:C.neon}}>Coral Hub</span></h1>
         <p style={{fontSize:13,color:C.dim,lineHeight:1.8,margin:0,maxWidth:760}}>Gerencie leads, catálogo de serviços e propostas comerciais da Coral Films sem alterar o fluxo atual de clientes e planejamentos.</p>
@@ -2502,7 +2502,7 @@ function CommercialHome({leads,services,proposals,onNavigate}){
 
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,16rem),1fr))",gap:16}}>
         {menu.map(item=>(
-          <button key={item.id} onClick={()=>onNavigate(item.id)} style={{...card,textAlign:"left",cursor:"pointer",borderRadius:18,background:"linear-gradient(145deg,rgba(18,26,39,.96),rgba(7,11,18,.96))"}}>
+          <button key={item.id} onClick={()=>onNavigate(item.id)} style={{...card,textAlign:"left",cursor:"pointer",borderRadius:18,background:"radial-gradient(circle at 15% 0%,rgba(0,213,255,.12),transparent 32%),linear-gradient(145deg,rgba(255,255,255,.97),rgba(232,244,255,.89))",border:"1px solid rgba(0,213,255,.24)",boxShadow:"0 16px 48px rgba(37,74,116,.12),0 0 22px rgba(0,213,255,.08)"}}>
             <div style={{fontSize:34,marginBottom:14}}>{item.icon}</div>
             <div style={{fontSize:10,fontWeight:900,letterSpacing:3,color:C.orange,textTransform:"uppercase",marginBottom:6}}>{item.kpi}</div>
             <h2 style={{fontSize:20,margin:"0 0 8px",fontWeight:950}}>{item.title}</h2>
@@ -2749,7 +2749,7 @@ function ProposalsView({proposals,items,leads,onNew,onEdit,onPdf,onConvert,onGen
             const totals = proposalTotals(proposalItems, proposal.descontoValor, proposal.descontoPercentual);
             const lead = leadMap.get(String(proposal.leadId));
             return(
-              <div key={proposal.id} style={{...card,borderRadius:18,background:"linear-gradient(145deg,rgba(18,26,39,.96),rgba(7,11,18,.96))"}}>
+              <div key={proposal.id} style={{...card,borderRadius:18,background:"radial-gradient(circle at 15% 0%,rgba(0,213,255,.12),transparent 32%),linear-gradient(145deg,rgba(255,255,255,.97),rgba(232,244,255,.89))",border:"1px solid rgba(0,213,255,.24)",boxShadow:"0 16px 48px rgba(37,74,116,.12),0 0 22px rgba(0,213,255,.08)"}}>
                 <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start"}}>
                   <div>
                     <h3 style={{fontSize:18,margin:"0 0 5px",fontWeight:950}}>{proposal.empresa || lead?.empresa || "Cliente sem nome"}</h3>
@@ -2921,7 +2921,7 @@ function ProposalFormView({form,setForm,leads,services,onLeadChange,onToggleServ
             </div>
           </div>
 
-          <div style={{...card,borderRadius:18,background:"linear-gradient(145deg,rgba(18,26,39,.98),rgba(7,11,18,.98))"}}>
+          <div style={{...card,borderRadius:18,background:"radial-gradient(circle at 15% 0%,rgba(0,213,255,.12),transparent 32%),linear-gradient(145deg,rgba(255,255,255,.97),rgba(232,244,255,.89))",border:"1px solid rgba(0,213,255,.24)",boxShadow:"0 16px 48px rgba(37,74,116,.12),0 0 22px rgba(0,213,255,.08)"}}>
             {[
               ["Valor de Implementação",totals.valorImplementacao,C.orange],
               ["Valor Mensal",totals.valorMensal,C.neon],
@@ -2978,12 +2978,12 @@ function FinanceDashboardView({contracts,plans,payments,notifications,onNavigate
   ];
   return <div style={{maxWidth:"100%",margin:"0 auto",padding:"1.5rem 1rem",animation:"fadeIn .35s ease-out"}}>
     <LegalFinanceTopMenu current="legal-dashboard" onNavigate={onNavigate}/>
-    <div style={{...ocrd,marginBottom:18,background:"linear-gradient(135deg,#110d08,#07101a)"}}>
+    <div style={{...ocrd,marginBottom:18,background:"radial-gradient(circle at 4% 0%,rgba(0,213,255,.16),transparent 30%),linear-gradient(135deg,rgba(255,255,255,.97),rgba(225,242,255,.90))"}}>
       <div style={{fontSize:10,fontWeight:900,letterSpacing:4,color:C.orange,textTransform:"uppercase",marginBottom:6}}>Dashboard</div>
       <h1 style={{fontSize:30,fontWeight:950,letterSpacing:-1,margin:"0 0 8px"}}>Jurídico e Financeiro <span style={{color:C.neon}}>Coral Films</span></h1>
       <p style={{fontSize:13,color:C.dim,lineHeight:1.8,margin:0}}>Controle completo do ciclo: proposta aprovada, contrato inteligente, assinatura Gov.br, plano mensal, cobranças recorrentes e notificações.</p>
     </div>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,13.5rem),1fr))",gap:12}}>{kpis.map(([label,value,icon,color])=><button key={label} onClick={()=>label.includes("Contrato")?onNavigate("legal-contracts"):label.includes("Cobran")||label.includes("Pagamento")?onNavigate("legal-payments"):onNavigate("legal-finance")} style={{...card,textAlign:"left",borderRadius:18,cursor:"pointer",background:"linear-gradient(145deg,rgba(18,26,39,.96),rgba(7,11,18,.96))"}}><div style={{fontSize:25,marginBottom:8}}>{icon}</div><div style={{fontSize:10,color:C.dim,fontWeight:900,letterSpacing:1.6,textTransform:"uppercase"}}>{label}</div><strong style={{display:"block",fontSize:21,color,marginTop:5}}>{value}</strong></button>)}</div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,13.5rem),1fr))",gap:12}}>{kpis.map(([label,value,icon,color])=><button key={label} onClick={()=>label.includes("Contrato")?onNavigate("legal-contracts"):label.includes("Cobran")||label.includes("Pagamento")?onNavigate("legal-payments"):onNavigate("legal-finance")} style={{...card,textAlign:"left",borderRadius:18,cursor:"pointer",background:"radial-gradient(circle at 15% 0%,rgba(0,213,255,.12),transparent 32%),linear-gradient(145deg,rgba(255,255,255,.97),rgba(232,244,255,.89))",border:"1px solid rgba(0,213,255,.24)",boxShadow:"0 16px 48px rgba(37,74,116,.12),0 0 22px rgba(0,213,255,.08)"}}><div style={{fontSize:25,marginBottom:8}}>{icon}</div><div style={{fontSize:10,color:C.dim,fontWeight:900,letterSpacing:1.6,textTransform:"uppercase"}}>{label}</div><strong style={{display:"block",fontSize:21,color,marginTop:5}}>{value}</strong></button>)}</div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginTop:16}}>
       <div style={ncrd}><div style={{fontSize:13,fontWeight:900,marginBottom:12}}>Notificações inteligentes</div>{notifications.length===0?<p style={{fontSize:12,color:C.dim}}>Nenhuma ação pendente agora.</p>:notifications.slice(0,6).map(n=><div key={n.id} style={{padding:"10px 0",borderBottom:`1px solid ${C.border}`}}><div style={{fontSize:12,fontWeight:900,color:n.priority==="danger"?C.danger:C.orange}}>{n.title}</div><div style={{fontSize:11,color:C.dim,marginTop:3}}>{n.message}</div></div>)}</div>
       <div style={ocrd}><div style={{fontSize:13,fontWeight:900,marginBottom:12}}>Fluxo automático</div>{["Proposta aprovada libera Gerar Contrato","Contrato salvo automaticamente no Jurídico","Upload do PDF assinado ativa contrato","Plano mensal cria a primeira cobrança","Recorrência gera novas cobranças"].map(x=><div key={x} style={{display:"flex",gap:8,fontSize:12,color:C.dim,marginBottom:9}}><span style={{color:C.success}}>✔</span>{x}</div>)}</div>
@@ -3011,7 +3011,7 @@ function ContractsView({mode="contracts",contracts,plans,payments,onNavigate,onO
     {sorted.length===0?<div style={{...ocrd,textAlign:"center",padding:52}}><div style={{fontSize:40,marginBottom:12}}>⚖️</div><p style={{color:C.dim,margin:0}}>Nenhum contrato gerado ainda. Aprove uma proposta e clique em “Gerar Contrato”.</p></div>:<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,24rem),1fr))",gap:14}}>{sorted.map(contract=>{
       const plan = plans.find(p=>String(p.contractId)===String(contract.id));
       const contractPayments = payments.filter(p=>String(p.contractId)===String(contract.id));
-      return <div key={contract.id} style={{...card,borderRadius:18,background:"linear-gradient(145deg,rgba(18,26,39,.96),rgba(7,11,18,.96))"}}>
+      return <div key={contract.id} style={{...card,borderRadius:18,background:"radial-gradient(circle at 15% 0%,rgba(0,213,255,.12),transparent 32%),linear-gradient(145deg,rgba(255,255,255,.97),rgba(232,244,255,.89))",border:"1px solid rgba(0,213,255,.24)",boxShadow:"0 16px 48px rgba(37,74,116,.12),0 0 22px rgba(0,213,255,.08)"}}>
         <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start"}}><div><div style={{fontSize:10,color:C.orange,fontWeight:900,letterSpacing:2,textTransform:"uppercase"}}>{contract.number}</div><h3 style={{fontSize:18,margin:"5px 0",fontWeight:950}}>{contract.clientName}</h3><div style={{fontSize:11,color:C.dim}}>Emissão {dateBR(contract.issueDate)} · {moneyBR(contract.value)}</div></div><Tag label={contract.status} color={contract.status==="Ativo"?C.success:contract.status==="Cancelado"?C.danger:C.orange}/></div>
         <div style={{fontSize:12,color:C.dim,lineHeight:1.7,marginTop:12}}><div>🧩 {contract.services||"Serviços conforme proposta"}</div><div>⏳ Vigência: {contract.validity}</div><div>💳 {contract.paymentMethod} · vencimento dia {contract.dueDay}</div>{plan&&<div>🔁 Plano: {moneyBR(plan.value)} · {plan.recurrence}</div>}{contractPayments.length>0&&<div>📌 Cobranças geradas: {contractPayments.length}</div>}</div>
         <ContractChecklist contract={contract}/>
@@ -3872,11 +3872,14 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
       <style>{`
         @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
         @keyframes spin{to{transform:rotate(360deg)}}
-        @keyframes pulseGlow{0%,100%{box-shadow:0 0 18px rgba(0,240,255,.16)}50%{box-shadow:0 0 34px rgba(249,115,22,.25),0 0 44px rgba(0,240,255,.18)}}
+        @keyframes pulseGlow{0%,100%{box-shadow:0 0 18px rgba(0,213,255,.16)}50%{box-shadow:0 0 34px rgba(0,149,255,.23),0 0 44px rgba(0,213,255,.18)}}
         @keyframes gridMove{from{transform:translateY(0)}to{transform:translateY(42px)}}
         @keyframes floatParticle{0%{transform:translate3d(0,20px,0);opacity:0}25%{opacity:.55}100%{transform:translate3d(calc((var(--i) - 12) * 8px),-110vh,0);opacity:0}}
         @keyframes statusIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
         @keyframes toastIn{from{opacity:0;transform:translateY(-12px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+        @keyframes snakeSweep{0%{transform:translateX(-38vw) scaleX(.68);opacity:0}14%{opacity:.84}100%{transform:translateX(126vw) scaleX(1);opacity:0}}
+        @keyframes snakePulse{0%,100%{filter:drop-shadow(0 0 10px rgba(0,213,255,.34))}50%{filter:drop-shadow(0 0 22px rgba(0,213,255,.62))}}
+        @keyframes sectorFade{0%{opacity:.95}100%{opacity:0}}
 
         *{box-sizing:border-box}
         body{margin:0;background:${C.black};}
@@ -3884,33 +3887,33 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
         button{will-change:transform,box-shadow,background;transition:transform .18s ease,box-shadow .18s ease,background .18s ease,border-color .18s ease,opacity .18s ease}
         button:hover{transform:translateY(-1px)}
         button:active{transform:translateY(0) scale(.98)}
-        ::-webkit-scrollbar{width:7px;background:#070b12}
+        ::-webkit-scrollbar{width:7px;background:#e8f1f8}
         ::-webkit-scrollbar-thumb{background:linear-gradient(${C.orange},${C.neon});border-radius:999px}
 
         .app-shell{position:relative;min-height:100vh;background:
-          linear-gradient(rgba(5,7,11,.65),rgba(5,7,11,.72)),
+          linear-gradient(180deg,rgba(248,251,255,.94),rgba(235,243,250,.92)),
           url("${APP_WATERMARK}") center/cover no-repeat fixed,
-          radial-gradient(circle at 12% 0%,rgba(249,115,22,.14),transparent 32%),
-          radial-gradient(circle at 88% 8%,rgba(0,240,255,.12),transparent 30%),
-          linear-gradient(180deg,#05070b 0%,#080d15 48%,#05070b 100%);
+          radial-gradient(circle at 8% 0%,rgba(0,213,255,.14),transparent 31%),
+          radial-gradient(circle at 90% 10%,rgba(14,165,255,.12),transparent 30%),
+          linear-gradient(180deg,#f8fbff 0%,#eef5fb 52%,#f7fbff 100%);
           color:${C.white};font-family:'Inter','Helvetica Neue',Arial,sans-serif;animation:fadeIn .55s ease-out}
-        .app-shell::before{content:"";position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:44px 44px;mask-image:linear-gradient(to bottom,rgba(0,0,0,.75),transparent 80%);}
+        .app-shell::before{content:"";position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(rgba(14,165,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(14,165,255,.035) 1px,transparent 1px);background-size:44px 44px;mask-image:linear-gradient(to bottom,rgba(0,0,0,.48),transparent 82%);}
 
-        .app-header{position:sticky;top:0;z-index:100;height:68px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;background:linear-gradient(135deg,rgba(11,18,32,.72),rgba(5,7,11,.46));backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid rgba(0,240,255,.22);box-shadow:0 14px 45px rgba(0,0,0,.32),0 0 28px rgba(0,240,255,.08)}
-        .app-header::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:linear-gradient(90deg,transparent,${C.orange},${C.neon},transparent);box-shadow:0 0 18px rgba(0,240,255,.65)}
+        .app-header{position:sticky;top:0;z-index:100;height:68px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;background:linear-gradient(135deg,rgba(255,255,255,.86),rgba(232,244,255,.72));backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid rgba(0,213,255,.22);box-shadow:0 14px 45px rgba(37,74,116,.12),0 0 28px rgba(0,213,255,.08)}
+        .app-header::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:linear-gradient(90deg,transparent,${C.orange},${C.neon},transparent);box-shadow:0 0 18px rgba(0,213,255,.65)}
         .header-brand{display:flex;align-items:center;gap:12px;min-width:0}
-        .header-logo{width:42px;height:42px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(249,115,22,.12),rgba(0,240,255,.08));border:1px solid rgba(255,255,255,.10);box-shadow:0 0 22px rgba(0,240,255,.12);overflow:hidden}
+        .header-logo{width:42px;height:42px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(255,255,255,.76),rgba(213,242,255,.68));border:1px solid rgba(0,213,255,.18);box-shadow:0 0 22px rgba(0,213,255,.12);overflow:hidden}
         .header-logo img{width:100%;height:100%;object-fit:contain;mix-blend-mode:screen;filter:brightness(1.12)}
         .header-brand strong{display:block;font-size:12px;letter-spacing:4px;color:${C.white};font-weight:900}
         .header-brand span{display:block;margin-top:3px;font-size:10px;letter-spacing:2px;color:${C.dim};text-transform:uppercase}
         .header-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 
-        .btn-new-client,.btn-generate{border:0;cursor:pointer;color:#090909;font-weight:950;text-transform:uppercase;letter-spacing:1.4px;background:linear-gradient(135deg,${C.orange},${C.orange2});box-shadow:0 0 22px rgba(249,115,22,.35),inset 0 1px 0 rgba(255,255,255,.28)}
+        .btn-new-client,.btn-generate{border:0;cursor:pointer;color:#ffffff;font-weight:950;text-transform:uppercase;letter-spacing:1.4px;background:linear-gradient(135deg,${C.orange},${C.orange2},${C.neon});box-shadow:0 0 22px rgba(0,213,255,.28),inset 0 1px 0 rgba(255,255,255,.32)}
         .btn-new-client{border-radius:999px;padding:11px 18px;font-size:12px}
-        .btn-new-client:hover,.btn-generate:hover{transform:translateY(-2px) scale(1.025);box-shadow:0 0 30px rgba(249,115,22,.52),0 0 20px rgba(0,240,255,.10)}
-        .btn-glass,.btn-icon,.btn-danger-modern{cursor:pointer;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.045);color:${C.white};backdrop-filter:blur(10px)}
+        .btn-new-client:hover,.btn-generate:hover{transform:translateY(-2px) scale(1.025);box-shadow:0 0 30px rgba(0,213,255,.44),0 0 20px rgba(14,165,255,.16)}
+        .btn-glass,.btn-icon,.btn-danger-modern{cursor:pointer;border:1px solid rgba(0,149,255,.18);background:rgba(255,255,255,.66);color:${C.white};backdrop-filter:blur(10px)}
         .btn-glass{border-radius:999px;padding:10px 15px;font-size:12px;font-weight:850;letter-spacing:1px;text-transform:uppercase}
-        .btn-glass:hover,.btn-icon:hover{border-color:rgba(0,240,255,.42);box-shadow:0 0 18px rgba(0,240,255,.16)}
+        .btn-glass:hover,.btn-icon:hover{border-color:rgba(0,213,255,.42);box-shadow:0 0 18px rgba(0,213,255,.16)}
         .btn-generate{flex:1;border-radius:12px;padding:11px 12px;font-size:11px}
         .btn-icon,.btn-danger-modern{width:42px;min-width:42px;height:42px;border-radius:12px;font-size:15px;display:inline-flex;align-items:center;justify-content:center}
         .btn-edit:hover{border-color:rgba(0,240,255,.45);color:${C.neon}}
@@ -3932,9 +3935,12 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
         .client-divider{height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.13),transparent)}
         .client-actions{display:flex;gap:9px;flex-wrap:nowrap}
 
-        .loading-screen{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;overflow:hidden;background:radial-gradient(circle at 50% 20%,rgba(0,240,255,.12),transparent 30%),radial-gradient(circle at 70% 75%,rgba(249,115,22,.12),transparent 28%),#020409;transition:opacity .55s ease,filter .55s ease}
+        .sector-snake-transition{position:fixed;inset:68px 0 0;z-index:91;pointer-events:none;animation:sectorFade .86s ease-out forwards;overflow:hidden}
+        .sector-snake-transition::before{content:"";position:absolute;top:18px;left:0;width:25vw;min-width:220px;height:5px;border-radius:999px;background:linear-gradient(90deg,transparent,rgba(0,213,255,.10),rgba(0,213,255,.75),#ffffff,rgba(0,213,255,.18),transparent);box-shadow:0 0 18px rgba(0,213,255,.42),0 0 34px rgba(14,165,255,.20);animation:snakeSweep .72s cubic-bezier(.22,1,.36,1) forwards,snakePulse .72s ease-in-out infinite}
+        .sector-snake-transition::after{content:"";position:absolute;top:12px;left:0;width:18px;height:18px;border-radius:60% 48% 58% 42%;background:radial-gradient(circle at 65% 40%,#fff 0 9%,#00d5ff 10% 58%,rgba(14,165,255,.22) 60% 100%);box-shadow:0 0 24px rgba(0,213,255,.70);animation:snakeSweep .72s cubic-bezier(.22,1,.36,1) forwards}
+        .loading-screen{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;overflow:hidden;background:radial-gradient(circle at 50% 20%,rgba(0,240,255,.12),transparent 30%),radial-gradient(circle at 70% 75%,rgba(14,165,255,.12),transparent 28%),#020b16;transition:opacity .55s ease,filter .55s ease}
         .loading-screen.is-leaving{opacity:0;filter:blur(10px)}
-        .loading-grid{position:absolute;inset:-80px;background-image:linear-gradient(rgba(0,240,255,.11) 1px,transparent 1px),linear-gradient(90deg,rgba(249,115,22,.10) 1px,transparent 1px);background-size:42px 42px;transform-origin:center;animation:gridMove 1.4s linear infinite;mask-image:radial-gradient(circle,rgba(0,0,0,.9),transparent 72%)}
+        .loading-grid{position:absolute;inset:-80px;background-image:linear-gradient(rgba(0,240,255,.11) 1px,transparent 1px),linear-gradient(90deg,rgba(14,165,255,.08) 1px,transparent 1px);background-size:42px 42px;transform-origin:center;animation:gridMove 1.4s linear infinite;mask-image:radial-gradient(circle,rgba(0,0,0,.9),transparent 72%)}
         .particle-field span{position:absolute;bottom:-30px;left:calc((var(--i) * 4.2%) + 2%);width:3px;height:3px;border-radius:999px;background:${C.neon};box-shadow:0 0 12px ${C.neon};animation:floatParticle calc(3s + (var(--i) * .08s)) linear infinite;animation-delay:calc(var(--i) * -.18s)}
         .loading-core{position:relative;z-index:1;width:min(92vw,420px);display:flex;flex-direction:column;align-items:center;gap:18px;padding:34px 28px;border-radius:28px;background:linear-gradient(145deg,rgba(15,23,42,.72),rgba(2,6,23,.38));border:1px solid rgba(255,255,255,.10);backdrop-filter:blur(18px);box-shadow:0 25px 80px rgba(0,0,0,.45);animation:pulseGlow 2.4s ease-in-out infinite}
         .loading-logo-ring{width:154px;height:154px;border-radius:999px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(0,240,255,.20);background:radial-gradient(circle,rgba(0,240,255,.08),transparent 62%)}
@@ -4151,6 +4157,7 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
       {screen==="home"&&<CoralHomeScreen onGoCommercial={()=>setScreen("commercial")} onGoPlanning={()=>setScreen("list")} onGoLegal={()=>setScreen("legal-dashboard")} onOpenCalendar={()=>setCalendarOpen(true)}/>}
       <CoralCalendarModal open={calendarOpen} onClose={()=>setCalendarOpen(false)} baseDate={calendarBaseDate} setBaseDate={setCalendarBaseDate} payments={recurringPayments} contracts={contracts}/>
       {screen!=="home"&&<Header screen={screen} onBack={()=>setScreen("home")} onNew={startNew} onCommercial={()=>setScreen("commercial")} onNavigate={goCommercial}/>}
+      {screen!=="home"&&<div key={`sector-${screen}`} className="sector-snake-transition" aria-hidden="true"/>}
       {false && screen!=="home"&&<SideBanners src={SIDE_BANNER}/>}
       {feedback && <div className={`toast ${feedback.type==="error" ? "error" : ""}`}>{feedback.message}</div>}
 
