@@ -341,7 +341,7 @@ function buildAuthorialProjectPlan(form={}){
   const production= selected.some(a=>a.key==="producer") ? buildProductionBoard({artIdeas,reels},ctx).concat([{task:"Revisão estratégica do projeto autoral",area:"Gerente de Produção",owner:"Coordenação Coral",due:form.deadline||"Definir prazo",status:"Ideia"}]) : [];
   const strategy= selected.some(a=>a.key==="director") ? {objective:`Criar e organizar o projeto autoral "${ctx.name}" com objetivo de ${form.objective||"fortalecer marca, portfólio e geração de oportunidades"}. O projeto deve ter clareza de público, formato, narrativa e execução.`,goal1:`Construir conceito forte para o público: ${form.audience||seed.audience}.`,goal2:`Criar valor percebido com estética, roteiro, prova e consistência.`,goal3:`Transformar o projeto em ativo comercial da Coral: portfólio, conteúdo, campanha ou produto.`,pillar1:"Autoridade: mostrar visão, método e diferencial criativo da Coral.",pillar2:"Conexão: bastidores, histórias, pessoas e linguagem humana.",pillar3:"Conversão: CTA para contato, portfólio, proposta ou captação."} : null;
   const calendar=buildCalendarSkeletonForPackage(fakePkg,String(new Date().getMonth()+1).padStart(2,"0"),ctx.niche).slice(0,Math.max(counts.arts,counts.reels)).map((r,i)=>({...r,content:(i%2&&reels.length)?reels[i%reels.length].title:(artIdeas[i%Math.max(1,artIdeas.length)]?.title||`Entrega autoral ${i+1}`)}));
-  return {createdAt:new Date().toISOString(),selectedAssistants:selected.map(a=>a.key),assistants:selected.map(a=>({key:a.key,name:a.name,role:a.role,desc:a.desc})),strategy:strategy||{},artIdeas,reels,scripts,socialManagement:social||{},production,calendar,references:[form.references||"Adicionar referências do Pinterest, Instagram, Behance ou Drive para guiar estética.","Usar referências como inspiração de linguagem e atmosfera, sem copiar layout."],nextSteps:["Validar conceito central","Separar referências visuais","Criar roteiro/peças iniciais","Organizar produção e prazos","Revisar e publicar/usar comercialmente"],outOfScope:["Como é projeto autoral, não existe trava de pacote; a limitação vem do tempo, equipe e prioridade interna."]};
+  return {planScope:"authorial",source:"lab-coral",isAuthorial:true,projectTitle:ctx.name,projectType:form.type||"Projeto autoral",createdAt:new Date().toISOString(),selectedAssistants:selected.map(a=>a.key),assistants:selected.map(a=>({key:a.key,name:a.name,role:a.role,desc:a.desc})),strategy:strategy||{},artIdeas,reels,scripts,socialManagement:social||{},production,calendar,references:[form.references||"Adicionar referências do Pinterest, Instagram, Behance ou Drive para guiar estética.","Usar referências como inspiração de linguagem e atmosfera, sem copiar layout."],nextSteps:["Validar conceito central","Separar referências visuais","Criar roteiro/peças iniciais","Organizar produção e prazos","Revisar e publicar/usar comercialmente"],outOfScope:["Como é projeto autoral, não existe trava de pacote; a limitação vem do tempo, equipe e prioridade interna."]};
 }
 
 
@@ -2598,21 +2598,22 @@ function PlanView({client,plan,onRegen,onExportPlan,onExportFinal,onEditClient,o
   );
 }
 
-function PlanningStudioHome({clients,onNew,onOpenLab,onCommercial,onLegal}){
-  const plansGenerated = clients.filter(c=>c.lastPlan).length;
+function PlanningStudioHome({clients,authorialProjects=[],onNew,onOpenLab,onCommercial,onLegal}){
+  const clientPlansGenerated = clients.filter(c=>c.lastPlan && !c?.lastPlan?.isAuthorial).length;
   const activeClients = clients.length;
+  const authorialCount = Array.isArray(authorialProjects) ? authorialProjects.length : 0;
   const assistantStats = [
     ["Clientes no Studio",activeClients,"🐍"],
-    ["Planos gerados",plansGenerated,"⚡"],
-    ["Assistentes IA",CREATIVE_ASSISTANTS.length,"🤖"],
-    ["Modo Autoral","Lab Coral","💎"]
+    ["Planos de clientes",clientPlansGenerated,"⚡"],
+    ["Projetos autorais",authorialCount,"💎"],
+    ["Assistentes IA",CREATIVE_ASSISTANTS.length,"🤖"]
   ];
   return <div style={{marginBottom:24}}>
     <div className="studio-brain-panel" style={{...ocrd,borderRadius:30,padding:26,background:"radial-gradient(circle at 6% 0%,rgba(0,213,255,.26),transparent 34%),linear-gradient(135deg,rgba(255,255,255,.98),rgba(224,242,254,.88))",position:"relative",overflow:"hidden"}}>
       <div style={{position:"absolute",right:22,bottom:8,fontSize:112,opacity:.08}}>🐍</div>
       <div style={{fontSize:10,fontWeight:1000,letterSpacing:4,color:C.orange,textTransform:"uppercase",marginBottom:8}}>Coral Creative Studio</div>
       <h1 style={{fontSize:"clamp(2rem,4vw,3.6rem)",fontWeight:1000,letterSpacing:-1.8,margin:"0 0 10px",lineHeight:1.03}}>Laboratório Criativo Coral</h1>
-      <p style={{fontSize:13,color:C.dim,lineHeight:1.8,maxWidth:820,margin:0}}>Área de laboratório para pensar estratégia, artes, vídeos, roteiros, gestão de redes e produção de cada cliente. O Lab Coral fica livre para projetos autorais fora dos clientes.</p>
+      <p style={{fontSize:13,color:C.dim,lineHeight:1.8,maxWidth:820,margin:0}}>Área de laboratório para pensar estratégia, artes, vídeos, roteiros, gestão de redes e produção de cada cliente. Os projetos autorais ficam separados dentro do Lab Coral e não entram na lista de planos dos clientes.</p>
       <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:18}}>
         <button style={btn("primary")} onClick={onNew}>+ Novo Cliente</button>
         <button style={btn("neon")} onClick={onOpenLab}>💎 Lab Coral / Autorais</button>
@@ -2646,58 +2647,80 @@ function LabProjectPlanPreview({plan}){
 }
 
 function LabCoralStudio({projects,form,setForm,onSave,onDelete,onBack,onGenerate}){
-  const safeProjects = Array.isArray(projects)?projects:[];
+  const [labTab,setLabTab] = useState("builder");
+  const safeProjects = Array.isArray(projects)?projects.filter(p=>p?.scope==="authorial" || p?.sector==="lab-coral" || p?.generatedPlan?.isAuthorial || p?.generatedPlan?.planScope==="authorial" || !p?.clientId):[];
   const selected = form.selectedAssistants || CREATIVE_ASSISTANTS.map(a=>a.key);
+  const updateField=(field,value)=>setForm(f=>({...f,[field]:value,generatedPlan:null}));
   const toggleAssistant=(key)=>setForm(f=>{
     const cur=f.selectedAssistants||CREATIVE_ASSISTANTS.map(a=>a.key);
     const has=cur.includes(key);
     const next=has?cur.filter(x=>x!==key):[...cur,key];
-    return {...f,selectedAssistants:next.length?next:cur};
+    return {...f,selectedAssistants:next.length?next:cur,generatedPlan:null};
   });
   const darkPanel={...ocrd,borderRadius:30,padding:26,background:"radial-gradient(circle at 8% 0%,rgba(0,213,255,.18),transparent 35%),linear-gradient(145deg,#020617,#050816 55%,#000)",border:"1px solid rgba(0,213,255,.30)",boxShadow:"0 0 38px rgba(0,213,255,.12)"};
   const darkCard={...card,background:"linear-gradient(145deg,rgba(2,6,23,.96),rgba(8,18,34,.94))",border:"1px solid rgba(0,213,255,.22)",boxShadow:"0 0 32px rgba(0,213,255,.08)"};
   const darkInput={...inp,background:"rgba(2,6,23,.96)",border:"1px solid rgba(0,213,255,.24)",color:"#e0f2fe",boxShadow:"inset 0 0 18px rgba(0,213,255,.04)"};
+  const tabBtn=(key,label,icon)=> <button key={key} onClick={()=>setLabTab(key)} style={{...btn(labTab===key?"neon":"ghost"),background:labTab===key?"rgba(0,213,255,.14)":"rgba(2,6,23,.75)",color:labTab===key?C.neon:"#93a4b8",border:labTab===key?"1px solid rgba(0,213,255,.55)":"1px solid rgba(148,163,184,.20)",boxShadow:labTab===key?"0 0 24px rgba(0,213,255,.14)":"none"}}>{icon} {label}</button>;
+  const savedProjectsView = safeProjects.length===0
+    ? <div style={{...darkCard,textAlign:"center",padding:42,borderRadius:24,color:C.dim}}>Nenhum plano autoral salvo ainda. Gere e salve um projeto para ele aparecer somente aqui no Lab Coral.</div>
+    : <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,22rem),1fr))",gap:12}}>{safeProjects.map(p=><div key={p.id} style={{...darkCard,borderRadius:24}}><div style={{fontSize:10,fontWeight:950,letterSpacing:3,color:C.neon,textTransform:"uppercase",marginBottom:6}}>Autoral · {p.type}</div><h3 style={{fontSize:18,fontWeight:1000,margin:"0 0 8px",color:"#fff"}}>{p.title}</h3><p style={{fontSize:12,color:C.dim,lineHeight:1.7}}>{p.objective}</p><div style={{fontSize:12,color:C.neon,fontWeight:900,marginBottom:10}}>{p.formats}</div>{p.generatedPlan&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>{(p.generatedPlan.assistants||[]).map(a=><span key={a.key} style={{fontSize:9,fontWeight:950,letterSpacing:1,textTransform:"uppercase",color:C.neon,border:"1px solid rgba(0,213,255,.28)",borderRadius:999,padding:"5px 8px"}}>{a.name}</span>)}</div>}<p style={{fontSize:12,color:C.dim,lineHeight:1.6}}>{p.notes}</p>{p.generatedPlan&&<details style={{margin:"10px 0",fontSize:12,color:C.dim}}><summary style={{cursor:"pointer",color:C.neon,fontWeight:900}}>Ver plano autoral gerado</summary><LabProjectPlanPreview plan={p.generatedPlan}/></details>}<button style={btn("danger","sm")} onClick={()=>onDelete(p.id)}>Excluir</button></div>)}</div>;
   return <div className="creative-lab-content" style={{maxWidth:"100%",margin:"0",padding:"clamp(1rem,2vw,2rem)",background:"#000",minHeight:"100vh"}}>
     <div className="studio-brain-panel" style={{...darkPanel,marginBottom:18}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:14,flexWrap:"wrap"}}>
         <div>
           <div style={{fontSize:10,fontWeight:1000,letterSpacing:4,color:C.neon,textTransform:"uppercase",marginBottom:8}}>Lab Coral</div>
           <h1 style={{fontSize:"clamp(2rem,4vw,3.2rem)",fontWeight:1000,letterSpacing:-1.5,margin:"0 0 8px",color:"#fff",textShadow:"0 0 28px rgba(0,213,255,.26)"}}>Laboratório de projetos autorais</h1>
-          <p style={{fontSize:13,color:"#93a4b8",lineHeight:1.8,margin:0,maxWidth:900}}>Aqui você escolhe quais assistentes vão trabalhar no projeto. O sistema gera estratégia, artes, vídeos, roteiros, gestão e produção conforme a equipe selecionada.</p>
+          <p style={{fontSize:13,color:"#93a4b8",lineHeight:1.8,margin:0,maxWidth:900}}>Os planos autorais ficam isolados neste setor. Eles não entram no planejamento dos clientes, não aparecem nos cards de clientes e não usam a trava de pacote contratado.</p>
         </div>
         <button style={{...btn("neon"),background:"rgba(0,213,255,.10)",color:C.neon,border:"1px solid rgba(0,213,255,.48)"}} onClick={onBack}>← Voltar ao Studio</button>
       </div>
+      <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:18}}>
+        {tabBtn("builder","Criar projeto autoral","⚙️")}
+        {tabBtn("preview","Plano em geração","🧠")}
+        {tabBtn("saved",`Planos autorais salvos (${safeProjects.length})`,"💎")}
+      </div>
     </div>
-    <div style={{display:"grid",gridTemplateColumns:"minmax(min(100%,24rem),30rem) minmax(0,1fr)",gap:16,alignItems:"start"}}>
+
+    {labTab==="builder"&&<div style={{display:"grid",gridTemplateColumns:"minmax(min(100%,24rem),30rem) minmax(0,1fr)",gap:16,alignItems:"start"}}>
       <div style={{...darkCard,borderRadius:24}}>
-        <div style={{fontSize:13,fontWeight:1000,marginBottom:14,color:"#fff"}}>Novo projeto autoral</div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",marginBottom:14}}><div style={{fontSize:13,fontWeight:1000,color:"#fff"}}>Novo projeto autoral</div><span style={{fontSize:10,fontWeight:1000,letterSpacing:2,color:C.neon,textTransform:"uppercase"}}>Setor autoral isolado</span></div>
         <div style={{display:"grid",gap:10}}>
-          <div><label style={lbl}>Nome do projeto *</label><input style={darkInput} value={form.title||""} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="Ex: Série Reels para captar clientes"/></div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><div><label style={lbl}>Tipo</label><select style={darkInput} value={form.type||"Campanha própria"} onChange={e=>setForm(f=>({...f,type:e.target.value}))}><option>Campanha própria</option><option>Série de Reels</option><option>Portfólio</option><option>Produto digital</option><option>Canal/Conteúdo</option><option>Plano interno</option></select></div><div><label style={lbl}>Nicho/tema</label><input style={darkInput} value={form.niche||""} onChange={e=>setForm(f=>({...f,niche:e.target.value}))} placeholder="Ex: Coral Films, imobiliária, barbearia"/></div></div>
-          <div><label style={lbl}>Objetivo estratégico</label><textarea style={{...darkInput,height:88,resize:"vertical"}} value={form.objective||""} onChange={e=>setForm(f=>({...f,objective:e.target.value}))} placeholder="O que esse projeto precisa gerar? Leads, portfólio, autoridade, campanha, produto?"/></div>
-          <div><label style={lbl}>Público-alvo</label><input style={darkInput} value={form.audience||""} onChange={e=>setForm(f=>({...f,audience:e.target.value}))} placeholder="Para quem esse projeto será criado?"/></div>
-          <div><label style={lbl}>Posicionamento / promessa</label><input style={darkInput} value={form.positioning||""} onChange={e=>setForm(f=>({...f,positioning:e.target.value}))} placeholder="Ex: mostrar que a Coral cria conteúdo que vende"/></div>
-          <div><label style={lbl}>Oferta ou CTA</label><input style={darkInput} value={form.offer||""} onChange={e=>setForm(f=>({...f,offer:e.target.value}))} placeholder="Ex: chamar no WhatsApp, pedir orçamento, baixar material"/></div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><div><label style={lbl}>Formatos previstos</label><input style={darkInput} value={form.formats||""} onChange={e=>setForm(f=>({...f,formats:e.target.value}))} placeholder="Ex: 10 Reels, 6 artes, 4 stories"/></div><div><label style={lbl}>Prazo/meta</label><input style={darkInput} value={form.deadline||""} onChange={e=>setForm(f=>({...f,deadline:e.target.value}))} placeholder="Ex: 30 dias"/></div></div>
-          <div><label style={lbl}>Canais</label><input style={darkInput} value={form.channels||""} onChange={e=>setForm(f=>({...f,channels:e.target.value}))} placeholder="Instagram, YouTube, TikTok, WhatsApp, portfólio"/></div>
-          <div><label style={lbl}>Tom de voz / estilo</label><input style={darkInput} value={form.tone||""} onChange={e=>setForm(f=>({...f,tone:e.target.value}))} placeholder="Premium, tecnológico, direto, popular, institucional..."/></div>
-          <div><label style={lbl}>Referências</label><textarea style={{...darkInput,height:74,resize:"vertical"}} value={form.references||""} onChange={e=>setForm(f=>({...f,references:e.target.value}))} placeholder="Links do Pinterest, Instagram, Behance, Drive ou descrição visual"/></div>
-          <div><label style={lbl}>Observações</label><textarea style={{...darkInput,height:74,resize:"vertical"}} value={form.notes||""} onChange={e=>setForm(f=>({...f,notes:e.target.value}))}/></div>
-          <div style={{display:"flex",gap:10,flexWrap:"wrap"}}><button style={btn("neon")} onClick={onGenerate}>⚡ Gerar plano autoral</button><button style={btn("primary")} onClick={onSave}>Salvar Projeto</button></div>
+          <div><label style={lbl}>Nome do projeto *</label><input style={darkInput} value={form.title||""} onChange={e=>updateField("title",e.target.value)} placeholder="Ex: Série Reels para captar clientes"/></div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><div><label style={lbl}>Tipo</label><select style={darkInput} value={form.type||"Campanha própria"} onChange={e=>updateField("type",e.target.value)}><option>Campanha própria</option><option>Série de Reels</option><option>Portfólio</option><option>Produto digital</option><option>Canal/Conteúdo</option><option>Plano interno</option></select></div><div><label style={lbl}>Nicho/tema</label><input style={darkInput} value={form.niche||""} onChange={e=>updateField("niche",e.target.value)} placeholder="Ex: Coral Films, imobiliária, barbearia"/></div></div>
+          <div><label style={lbl}>Objetivo estratégico</label><textarea style={{...darkInput,height:88,resize:"vertical"}} value={form.objective||""} onChange={e=>updateField("objective",e.target.value)} placeholder="O que esse projeto precisa gerar? Leads, portfólio, autoridade, campanha, produto?"/></div>
+          <div><label style={lbl}>Público-alvo</label><input style={darkInput} value={form.audience||""} onChange={e=>updateField("audience",e.target.value)} placeholder="Para quem esse projeto será criado?"/></div>
+          <div><label style={lbl}>Posicionamento / promessa</label><input style={darkInput} value={form.positioning||""} onChange={e=>updateField("positioning",e.target.value)} placeholder="Ex: mostrar que a Coral cria conteúdo que vende"/></div>
+          <div><label style={lbl}>Oferta ou CTA</label><input style={darkInput} value={form.offer||""} onChange={e=>updateField("offer",e.target.value)} placeholder="Ex: chamar no WhatsApp, pedir orçamento, baixar material"/></div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><div><label style={lbl}>Formatos previstos</label><input style={darkInput} value={form.formats||""} onChange={e=>updateField("formats",e.target.value)} placeholder="Ex: 10 Reels, 6 artes, 4 stories"/></div><div><label style={lbl}>Prazo/meta</label><input style={darkInput} value={form.deadline||""} onChange={e=>updateField("deadline",e.target.value)} placeholder="Ex: 30 dias"/></div></div>
+          <div><label style={lbl}>Canais</label><input style={darkInput} value={form.channels||""} onChange={e=>updateField("channels",e.target.value)} placeholder="Instagram, YouTube, TikTok, WhatsApp, portfólio"/></div>
+          <div><label style={lbl}>Tom de voz / estilo</label><input style={darkInput} value={form.tone||""} onChange={e=>updateField("tone",e.target.value)} placeholder="Premium, tecnológico, direto, popular, institucional..."/></div>
+          <div><label style={lbl}>Referências</label><textarea style={{...darkInput,height:74,resize:"vertical"}} value={form.references||""} onChange={e=>updateField("references",e.target.value)} placeholder="Links do Pinterest, Instagram, Behance, Drive ou descrição visual"/></div>
+          <div><label style={lbl}>Observações</label><textarea style={{...darkInput,height:74,resize:"vertical"}} value={form.notes||""} onChange={e=>updateField("notes",e.target.value)}/></div>
+          <div style={{fontSize:12,color:C.dim,lineHeight:1.6,border:"1px solid rgba(0,213,255,.16)",borderRadius:16,padding:12,background:"rgba(0,213,255,.05)"}}>Este projeto será salvo no armazenamento exclusivo do Lab Coral. Ele não será misturado com clientes nem com planos gerados por proposta aprovada.</div>
+          <div style={{display:"flex",gap:10,flexWrap:"wrap"}}><button style={btn("neon")} onClick={()=>{onGenerate();setLabTab("preview");}}>⚡ Gerar plano autoral</button><button style={btn("primary")} onClick={()=>{onSave();setLabTab("saved");}}>Salvar no Lab Coral</button></div>
         </div>
       </div>
       <div style={{display:"grid",gap:14}}>
         <div style={{...darkCard,borderRadius:24}}>
-          <div style={{fontSize:10,fontWeight:1000,letterSpacing:3,color:C.neon,textTransform:"uppercase",marginBottom:12}}>Escolha os assistentes do projeto</div>
+          <div style={{fontSize:10,fontWeight:1000,letterSpacing:3,color:C.neon,textTransform:"uppercase",marginBottom:12}}>Escolha os assistentes deste projeto autoral</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,15rem),1fr))",gap:12}}>{CREATIVE_ASSISTANTS.map((a,i)=>{
             const active=selected.includes(a.key);
             return <button key={a.key} onClick={()=>toggleAssistant(a.key)} style={{textAlign:"left",cursor:"pointer",borderRadius:22,padding:16,border:active?"1px solid rgba(0,213,255,.62)":"1px solid rgba(148,163,184,.20)",background:active?"radial-gradient(circle at 10% 0%,rgba(0,213,255,.22),transparent 38%),rgba(2,6,23,.96)":"rgba(2,6,23,.72)",boxShadow:active?"0 0 28px rgba(0,213,255,.16)":"none",color:"#fff"}}><AgencyMascot assistant={a} active={active}/><p style={{fontSize:12,color:C.dim,lineHeight:1.6,margin:"12px 0 0"}}>{a.desc}</p><div style={{fontSize:10,fontWeight:1000,letterSpacing:2,textTransform:"uppercase",color:active?C.neon:C.dim,marginTop:10}}>{active?"Selecionado":"Clique para ativar"}</div></button>
           })}</div>
         </div>
-        <LabProjectPlanPreview plan={form.generatedPlan}/>
-        {safeProjects.length===0?<div style={{...darkCard,textAlign:"center",padding:42,borderRadius:24,color:C.dim}}>Nenhum projeto autoral salvo ainda.</div>:<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,22rem),1fr))",gap:12}}>{safeProjects.map(p=><div key={p.id} style={{...darkCard,borderRadius:24}}><div style={{fontSize:10,fontWeight:950,letterSpacing:3,color:C.neon,textTransform:"uppercase",marginBottom:6}}>{p.type}</div><h3 style={{fontSize:18,fontWeight:1000,margin:"0 0 8px",color:"#fff"}}>{p.title}</h3><p style={{fontSize:12,color:C.dim,lineHeight:1.7}}>{p.objective}</p><div style={{fontSize:12,color:C.neon,fontWeight:900,marginBottom:10}}>{p.formats}</div>{p.generatedPlan&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>{(p.generatedPlan.assistants||[]).map(a=><span key={a.key} style={{fontSize:9,fontWeight:950,letterSpacing:1,textTransform:"uppercase",color:C.neon,border:"1px solid rgba(0,213,255,.28)",borderRadius:999,padding:"5px 8px"}}>{a.name}</span>)}</div>}<p style={{fontSize:12,color:C.dim,lineHeight:1.6}}>{p.notes}</p>{p.generatedPlan&&<details style={{margin:"10px 0",fontSize:12,color:C.dim}}><summary style={{cursor:"pointer",color:C.neon,fontWeight:900}}>Ver plano gerado</summary><LabProjectPlanPreview plan={p.generatedPlan}/></details>}<button style={btn("danger","sm")} onClick={()=>onDelete(p.id)}>Excluir</button></div>)}</div>}
+        <div style={{...darkCard,borderRadius:24}}><div style={{fontSize:10,fontWeight:1000,letterSpacing:3,color:C.neon,textTransform:"uppercase",marginBottom:8}}>Resumo de isolamento</div><p style={{fontSize:12,color:C.dim,lineHeight:1.7,margin:0}}>Selecionados: {selected.length} assistentes. Destino: Lab Coral / Autorais. Fonte: briefing autoral livre. Não vinculado a cliente, proposta, contrato ou cobrança.</p></div>
       </div>
-    </div>
+    </div>}
+
+    {labTab==="preview"&&<div style={{display:"grid",gap:14}}>
+      {form.generatedPlan?<LabProjectPlanPreview plan={form.generatedPlan}/>:<div style={{...darkCard,textAlign:"center",padding:42,borderRadius:24,color:C.dim}}>Ainda não existe plano autoral gerado nesta tela. Volte em “Criar projeto autoral”, preencha o briefing e clique em gerar.</div>}
+      {form.generatedPlan&&<div style={{display:"flex",gap:10,flexWrap:"wrap"}}><button style={btn("primary")} onClick={()=>{onSave();setLabTab("saved");}}>Salvar este plano no Lab Coral</button><button style={btn("ghost")} onClick={()=>setLabTab("builder")}>Editar briefing</button></div>}
+    </div>}
+
+    {labTab==="saved"&&<div style={{display:"grid",gap:14}}>
+      <div style={{...darkCard,borderRadius:24}}><div style={{fontSize:10,fontWeight:1000,letterSpacing:3,color:C.neon,textTransform:"uppercase",marginBottom:8}}>Biblioteca autoral</div><h2 style={{color:"#fff",margin:"0 0 8px",fontSize:24}}>Planos autorais salvos</h2><p style={{fontSize:12,color:C.dim,lineHeight:1.7,margin:0}}>Tudo que for criado aqui pertence ao setor autoral. Os planos de clientes continuam apenas dentro dos cards de clientes do Studio.</p></div>
+      {savedProjectsView}
+    </div>}
   </div>;
 }
 
@@ -3381,20 +3404,20 @@ function CoralFilmsApp(){
 
   function gerarProjetoAutoral(){
     if(!authorialForm.title.trim()) return alert("Nome do projeto é obrigatório para gerar o plano.");
-    const generatedPlan = buildAuthorialProjectPlan(authorialForm);
+    const generatedPlan = {...buildAuthorialProjectPlan(authorialForm),planScope:"authorial",source:"lab-coral",isAuthorial:true};
     setAuthorialForm(f=>({...f,generatedPlan}));
-    showFeedback("Plano autoral gerado pelos assistentes selecionados.","success");
+    showFeedback("Plano autoral gerado somente dentro do Lab Coral.","success");
   }
 
   async function salvarProjetoAutoral(){
     if(!authorialForm.title.trim()) return alert("Nome do projeto é obrigatório.");
-    const generatedPlan = authorialForm.generatedPlan || buildAuthorialProjectPlan(authorialForm);
-    const project = {...authorialForm,generatedPlan,id:newLocalId(),createdAt:new Date().toISOString(),status:"Ideia"};
-    const next = [project,...authorialProjects];
+    const generatedPlan = {...(authorialForm.generatedPlan || buildAuthorialProjectPlan(authorialForm)),planScope:"authorial",source:"lab-coral",isAuthorial:true};
+    const project = {...authorialForm,scope:"authorial",sector:"lab-coral",generatedPlan,id:newLocalId(),createdAt:new Date().toISOString(),status:"Ideia"};
+    const next = [project,...authorialProjects.filter(p=>p?.scope==="authorial" || p?.sector==="lab-coral" || p?.generatedPlan?.isAuthorial || p?.generatedPlan?.planScope==="authorial" || !p?.clientId)];
     setAuthorialProjects(next);
     await dbSet(AUTHORIAL_STORAGE_KEY,next);
     setAuthorialForm(emptyAuthorialForm());
-    showFeedback("Projeto autoral salvo com plano e assistentes.","success");
+    showFeedback("Projeto autoral salvo exclusivamente no Lab Coral.","success");
   }
 
   async function excluirProjetoAutoral(id){
@@ -4697,7 +4720,7 @@ ${commercialScopeText}`:""}`,
       {/* ── LIST ── */}
       {screen==="list"&&(
         <div className="creative-lab-content" style={wrap}>
-          <PlanningStudioHome clients={clients} onNew={startNew} onOpenLab={()=>setScreen("lab-coral")} onCommercial={()=>setScreen("commercial")} onLegal={()=>setScreen("legal-dashboard")}/>
+          <PlanningStudioHome clients={clients} authorialProjects={authorialProjects} onNew={startNew} onOpenLab={()=>setScreen("lab-coral")} onCommercial={()=>setScreen("commercial")} onLegal={()=>setScreen("legal-dashboard")}/>
           {STORAGE_MODE_LABEL && <div style={{marginTop:-8,marginBottom:14,fontSize:11,color:C.dim,lineHeight:1.6}}>{STORAGE_MODE_LABEL}</div>}
           {loadingList?(
             <div style={{...ncrd,textAlign:"center",padding:46,animation:"fadeIn .4s ease-out"}}>
