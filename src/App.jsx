@@ -171,6 +171,34 @@ const DEFAULT_SERVICES = [
   }
 ];
 
+const COMMERCIAL_PACKAGE_MIN = 800;
+const COMMERCIAL_PACKAGE_MAX = 1500;
+const COMMERCIAL_PACKAGES = [
+  {key:"coral-essencial",name:"Coral Essencial",value:800,badge:"Entrada estratégica",desc:"Presença digital consistente sem excesso de volume.",weekly:{arts:2,reels:1,stories:3},monthly:{arts:8,reels:4,stories:12},includes:{management:"Gestão básica do Instagram",planning:"Calendário semanal de conteúdo",report:"Relatório mensal simples"},deliverables:["2 artes por semana","1 Reels por semana","Gestão básica do Instagram","Legendas/copy","Calendário semanal","Relatório mensal simples"]},
+  {key:"coral-pro",name:"Coral Pro",value:1200,badge:"Mais presença",desc:"Frequência maior, constância e linha estratégica mais forte.",weekly:{arts:3,reels:2,stories:4},monthly:{arts:12,reels:8,stories:16},includes:{management:"Gestão de Instagram",planning:"Calendário semanal de conteúdo",report:"Relatório mensal"},deliverables:["3 artes por semana","2 Reels por semana","Gestão de Instagram","Legendas estratégicas","Calendário semanal","Ajustes de bio e destaques","Relatório mensal","Sugestões de campanhas"]},
+  {key:"coral-premium",name:"Coral Premium",value:1500,badge:"Máxima entrega",desc:"Volume, estratégia mensal e presença mais agressiva.",weekly:{arts:4,reels:3,stories:5},monthly:{arts:16,reels:12,stories:20},includes:{management:"Gestão completa de Instagram",planning:"Planejamento estratégico mensal",report:"Relatório mensal + análise"},deliverables:["4 artes por semana","3 Reels por semana","Gestão de Instagram","Planejamento estratégico mensal","Legendas persuasivas","Calendário de conteúdo","Relatório mensal","Análise de desempenho","Sugestões de campanha"]}
+];
+function getCommercialPackage(key){return COMMERCIAL_PACKAGES.find(p=>String(p.key)===String(key))||null;}
+function normalizeCommercialPlanSnapshot(snapshot=null,key=""){
+  const base=(snapshot&&typeof snapshot==="object")?snapshot:getCommercialPackage(key);
+  if(!base)return null;
+  const weekly=base.weekly||{}, monthly=base.monthly||{}, includes=base.includes||{};
+  const arts=Number(weekly.arts||0), reels=Number(weekly.reels||0), stories=Number(weekly.stories||0);
+  return {key:base.key||key,name:base.name||"Plano Comercial",value:toNumber(base.value),badge:base.badge||"Plano contratado",desc:base.desc||"Pacote comercial contratado.",weekly:{arts,reels,stories},monthly:{arts:Number(monthly.arts||arts*4),reels:Number(monthly.reels||reels*4),stories:Number(monthly.stories||stories*4)},includes:{management:includes.management||"Gestão de Instagram",planning:includes.planning||"Calendário de conteúdo",report:includes.report||"Relatório mensal"},deliverables:Array.isArray(base.deliverables)?base.deliverables:[]};
+}
+function packageDeliverablesText(pkgInput){const p=normalizeCommercialPlanSnapshot(pkgInput);if(!p)return"";return [`${p.weekly.arts} arte(s) por semana · ${p.monthly.arts} arte(s) por mês`,`${p.weekly.reels} Reels por semana · ${p.monthly.reels} Reels por mês`,`${p.weekly.stories} Stories/sequências por semana · ${p.monthly.stories} por mês`,p.includes.management,p.includes.planning,p.includes.report].filter(Boolean).join("\n");}
+function buildPackageProposalItem(pkgInput){const p=normalizeCommercialPlanSnapshot(pkgInput);return normalizeProposalItem({id:newLocalId(),serviceId:`package-${p.key}`,serviceName:p.name,categoria:"Pacote Mensal Coral",tipo:"Mensal",quantidade:1,valorUnitario:p.value,descricao:`${p.desc}\n\nEntregas contratadas:\n${packageDeliverablesText(p)}`,ordem:1});}
+function buildContractScopeForAi(pkgInput){const p=normalizeCommercialPlanSnapshot(pkgInput);if(!p)return null;return {packageName:p.name,value:p.value,weeklyArts:p.weekly.arts,weeklyReels:p.weekly.reels,weeklyStories:p.weekly.stories,monthlyArts:p.monthly.arts,monthlyReels:p.monthly.reels,monthlyStories:p.monthly.stories,management:p.includes.management,planning:p.includes.planning,report:p.includes.report,rule:"A proposta aprovada é a fonte oficial. Não ultrapassar as quantidades contratadas."};}
+function buildCalendarSkeletonForPackage(pkgInput,mm,niche="negócio local"){
+ const p=normalizeCommercialPlanSnapshot(pkgInput); const arts=Math.max(1,p?.monthly?.arts||8), reels=Math.max(1,p?.monthly?.reels||4); const days=[2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,31], out=[];
+ for(let i=0;i<arts;i++){out.push({date:`${String(days[i%days.length]).padStart(2,"0")}/${mm}`,content:`Arte ${i+1} para ${niche}`,format:i%3===0?"Carrossel":"Post Feed",pillar:["Autoridade","Conexão","Conversão"][i%3]});}
+ for(let i=0;i<reels;i++){out.push({date:`${String(days[(i*2+1)%days.length]).padStart(2,"0")}/${mm}`,content:`Reels ${i+1} para ${niche}`,format:"Reels",pillar:["Autoridade","Conversão","Conexão"][i%3]});}
+ return out.sort((a,b)=>Number(a.date.slice(0,2))-Number(b.date.slice(0,2)));
+}
+function buildReelsSkeletonForPackage(pkgInput,niche="negócio local"){const p=normalizeCommercialPlanSnapshot(pkgInput);const total=Math.max(1,p?.monthly?.reels||4);return Array.from({length:total},(_,i)=>({title:`REELS ${String(i+1).padStart(2,"0")} - ${String(niche).toUpperCase()}`,objective:`Objetivo estratégico do Reels ${i+1} dentro do pacote contratado.`,structure:["hook visual forte","problema ou desejo","solução/prova/oferta","CTA claro"],caption:"legenda sugerida",cta:"chamada para ação",cta_text:"Saiba mais"}));}
+function enforcePlanAgainstPackage(plan,pkgInput,client={}){const p=normalizeCommercialPlanSnapshot(pkgInput);if(!p||!plan)return plan;const mm=String(client.month||new Date().getMonth()+1).padStart(2,"0");return {...plan,calendar:buildCalendarSkeletonForPackage(p,mm,client.niche||"negócio local").map((x,i)=>({...x,...((plan.calendar||[])[i]||{}),format:x.format,date:((plan.calendar||[])[i]||{}).date||x.date})),reels:buildReelsSkeletonForPackage(p,client.niche||"negócio local").map((x,i)=>({...x,...((plan.reels||[])[i]||{})})),contractScope:buildContractScopeForAi(p),outOfScope:["Entregas acima do pacote devem virar proposta complementar.","Tráfego pago, landing page, automação, captação extra e volume adicional só entram se estiverem contratados."]};}
+
+
 function emptyLeadForm(){
   return {
     id:null,
@@ -224,6 +252,9 @@ function emptyProposalForm(){
     condicoesPagamento:"Entrada de 50% para início do projeto e saldo conforme cronograma aprovado. Serviços mensais são cobrados de forma recorrente.",
     proximosPassos:"1. Aprovação da proposta. 2. Alinhamento estratégico. 3. Início da produção. 4. Entrega e acompanhamento.",
     status:"Rascunho",
+    commercialPlanKey:"",
+    commercialPlanName:"",
+    commercialPlanSnapshot:null,
     descontoValor:0,
     descontoPercentual:0,
     items:[]
@@ -309,6 +340,9 @@ function normalizeProposal(row={}){
     condicoesPagamento:row.condicoesPagamento || row.condicoes_pagamento || "",
     proximosPassos:row.proximosPassos || row.proximos_passos || "",
     status:PROPOSAL_STATUS_OPTIONS.includes(row.status) ? row.status : "Rascunho",
+    commercialPlanKey:row.commercialPlanKey || row.commercial_plan_key || row.planKey || "",
+    commercialPlanName:row.commercialPlanName || row.commercial_plan_name || row.planName || "",
+    commercialPlanSnapshot:normalizeCommercialPlanSnapshot(row.commercialPlanSnapshot || row.commercial_plan_snapshot || row.planSnapshot || null, row.commercialPlanKey || row.commercial_plan_key || row.planKey || ""),
     descontoValor:toNumber(row.descontoValor ?? row.desconto_valor),
     descontoPercentual:toNumber(row.descontoPercentual ?? row.desconto_percentual),
     valorTabela:toNumber(row.valorTabela ?? row.valor_tabela),
@@ -931,7 +965,10 @@ async function salvarProposalSupabase(proposal,items=[]){
     endereco:proposal.endereco,
     vigencia:proposal.vigencia,
     diaVencimento:proposal.diaVencimento,
-    formaPagamento:proposal.formaPagamento
+    formaPagamento:proposal.formaPagamento,
+    commercialPlanKey:proposal.commercialPlanKey || "",
+    commercialPlanName:proposal.commercialPlanName || "",
+    commercialPlanSnapshot:proposal.commercialPlanSnapshot || null
   };
 
   const payload = {
@@ -955,6 +992,9 @@ async function salvarProposalSupabase(proposal,items=[]){
     condicoes_pagamento:proposal.condicoesPagamento || "",
     proximos_passos:proposal.proximosPassos || "",
     status:proposal.status || "Rascunho",
+    commercial_plan_key:proposal.commercialPlanKey || "",
+    commercial_plan_name:proposal.commercialPlanName || "",
+    commercial_plan_snapshot:proposal.commercialPlanSnapshot || null,
     desconto_valor:toNumber(proposal.descontoValor),
     desconto_percentual:toNumber(proposal.descontoPercentual),
     valor_tabela:totals.valorTabela,
@@ -1081,6 +1121,8 @@ function openCommercialProposalPdf(proposal,items=[],lead=null){
       <td>${moneyBR(toNumber(item.valorUnitario)*Number(item.quantidade||1))}</td>
     </tr>
   `).join("");
+  const planSnapshot = normalizeCommercialPlanSnapshot(proposal.commercialPlanSnapshot, proposal.commercialPlanKey);
+  const planDeliverables = planSnapshot ? packageDeliverablesText(planSnapshot).split("\n").map(x=>`<li>${safe(x)}</li>`).join("") : "";
 
   const html = `<!doctype html>
   <html>
@@ -1163,6 +1205,7 @@ function openCommercialProposalPdf(proposal,items=[],lead=null){
       <div class="content">
         <div class="eyebrow">Serviços selecionados</div>
         <h2>Escopo da proposta</h2>
+        ${planSnapshot ? `<div class="card" style="margin-bottom:7mm;border-color:rgba(0,240,255,.28)"><div class="eyebrow">Plano comercial contratado</div><p><b>${safe(planSnapshot.name)}</b> · ${moneyBR(planSnapshot.value)} / mês<br/>Este pacote é a fonte oficial para contrato, planejamento mensal e financeiro.</p><ul style="font-size:11px;line-height:1.8;color:#cbd5e1;margin:4mm 0 0;padding-left:5mm">${planDeliverables}</ul></div>` : ""}
         <table>
           <thead><tr><th>Serviço</th><th>Descrição</th><th>Qtd.</th><th>Valor</th><th>Total</th></tr></thead>
           <tbody>${selectedRows || `<tr><td colspan="5">Nenhum serviço selecionado.</td></tr>`}</tbody>
@@ -1829,7 +1872,7 @@ async function callOpenRouter(prompt){
       },
       body:JSON.stringify({
         model:"openai/gpt-3.5-turbo",
-        max_tokens:2500,
+        max_tokens:4500,
         messages:[
           {
             role:"user",
@@ -2215,6 +2258,7 @@ function ClientCard({plano,index,onGenerate,onOpen,onEdit,onDelete,onFinance}){
       </div>
 
       {plano.instagram&&<div className="client-instagram">@{plano.instagram}</div>}
+      {plano.commercialPackage&&<div className="client-instagram" style={{borderColor:"rgba(0,213,255,.35)",color:C.neon}}>📦 {plano.commercialPackage.name} · {moneyBR(plano.commercialPackage.value)}/mês</div>}
 
       <div className="client-meta-row">
         <span>📅 {month} {plano.year}</span>
@@ -2271,6 +2315,8 @@ function PlanView({client,plan,onRegen,onExportPlan,onExportFinal,onEditClient})
           ))}
         </div>
       </div>
+
+      {(plan.contractScope || client.commercialPackage) && (()=>{ const scope = plan.contractScope || buildContractScopeForAi(client.commercialPackage); return <div style={{...ncrd,marginBottom:18}}><div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}><div><div style={{fontSize:10,fontWeight:900,letterSpacing:3,color:C.orange,textTransform:"uppercase",marginBottom:6}}>Escopo contratado da proposta</div><h3 style={{fontSize:18,fontWeight:950,margin:"0 0 6px"}}>{scope.packageName}</h3><p style={{fontSize:12,color:C.dim,lineHeight:1.7,margin:0}}>Este planejamento foi limitado ao pacote aprovado. Entregas extras devem virar proposta complementar.</p></div><strong style={{fontSize:22,color:C.neon}}>{moneyBR(scope.value)}<span style={{fontSize:11,color:C.dim}}> / mês</span></strong></div><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10,marginTop:12}}><div style={card}><b style={{color:C.neon}}>{scope.weeklyArts}</b><span style={{fontSize:11,color:C.dim}}> artes por semana</span></div><div style={card}><b style={{color:C.neon}}>{scope.weeklyReels}</b><span style={{fontSize:11,color:C.dim}}> Reels por semana</span></div><div style={card}><b style={{color:C.neon}}>{scope.monthlyArts}</b><span style={{fontSize:11,color:C.dim}}> artes no mês</span></div><div style={card}><b style={{color:C.neon}}>{scope.monthlyReels}</b><span style={{fontSize:11,color:C.dim}}> Reels no mês</span></div></div></div>; })()}
 
       {/* tab bar */}
       <div style={{display:"flex",gap:3,marginBottom:18,background:C.surface,padding:4,borderRadius:6,border:`1px solid ${C.border}`}}>
@@ -2757,6 +2803,7 @@ function ProposalsView({proposals,items,leads,onNew,onEdit,onPdf,onConvert,onGen
                   </div>
                   <Tag label={proposal.status} color={proposal.status==="Convertida"?C.success:proposal.status==="Recusada"?C.danger:C.orange}/>
                 </div>
+                {proposal.commercialPlanName && <div style={{marginTop:12,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}><Tag label={proposal.commercialPlanName} color={C.neon}/><span style={{fontSize:11,color:C.dim}}>pacote da proposta</span></div>}
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:14}}>
                   <div style={{...ncrd,padding:12}}>
                     <div style={{fontSize:9,color:C.dim,fontWeight:900,letterSpacing:1.4,textTransform:"uppercase"}}>Valor Final</div>
@@ -2784,10 +2831,13 @@ function ProposalsView({proposals,items,leads,onNew,onEdit,onPdf,onConvert,onGen
   );
 }
 
-function ProposalFormView({form,setForm,leads,services,onLeadChange,onToggleService,onUpdateItem,onRemoveItem,onSave,onCancel,onPdfDraft,onNavigate,editingProposal}){
+function ProposalFormView({form,setForm,leads,services,onLeadChange,onApplyPackage,onToggleService,onUpdateItem,onRemoveItem,onSave,onCancel,onPdfDraft,onNavigate,editingProposal}){
   const activeServices = services.filter(s=>s.ativo!==false).sort((a,b)=>(Number(a.ordemExibicao||0)-Number(b.ordemExibicao||0)) || String(a.nome).localeCompare(String(b.nome)));
   const selectedIds = new Set((form.items||[]).map(i=>String(i.serviceId)));
   const totals = proposalTotals(form.items, form.descontoValor, form.descontoPercentual);
+  const planSnapshot = normalizeCommercialPlanSnapshot(form.commercialPlanSnapshot, form.commercialPlanKey);
+  const monthlyGuardValue = planSnapshot?.value || totals.valorMensal || totals.valorFinal;
+  const monthlyGuardOk = monthlyGuardValue>=COMMERCIAL_PACKAGE_MIN && monthlyGuardValue<=COMMERCIAL_PACKAGE_MAX;
 
   return(
     <div className="max-w-6xl mx-auto px-4 w-full" style={{maxWidth:"100%",margin:"0 auto",padding:"1.5rem 1rem",animation:"fadeIn .35s ease-out"}}>
@@ -2833,6 +2883,15 @@ function ProposalFormView({form,setForm,leads,services,onLeadChange,onToggleServ
               <label style={lbl}>Objetivos</label>
               <textarea style={{...inp,height:90,resize:"vertical"}} value={form.objetivos} onChange={e=>setForm(f=>({...f,objetivos:e.target.value}))} placeholder="Objetivos do cliente e contexto da proposta..."/>
             </div>
+          </div>
+
+          <div style={{...ncrd,position:"relative",overflow:"hidden"}}>
+            <div style={{fontSize:13,fontWeight:950}}>Plano comercial da proposta</div>
+            <div style={{fontSize:11,color:C.dim,marginTop:4,lineHeight:1.6,marginBottom:14}}>Escolha o pacote contratado. A IA, o contrato, o financeiro e o planejamento vão respeitar exatamente este escopo.</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,14rem),1fr))",gap:10}}>
+              {COMMERCIAL_PACKAGES.map(pkg=>{const selected=String(form.commercialPlanKey)===String(pkg.key);return <button key={pkg.key} onClick={()=>onApplyPackage(pkg.key)} style={{textAlign:"left",cursor:"pointer",borderRadius:18,padding:16,border:`1px solid ${selected?C.neon:C.border}`,background:selected?"linear-gradient(145deg,rgba(219,244,255,.96),rgba(255,255,255,.92))":"rgba(255,255,255,.62)",boxShadow:selected?"0 0 28px rgba(0,213,255,.18)":"none",color:C.white}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><strong>{pkg.name}</strong><span style={{fontSize:10,color:selected?C.neon:C.dim,fontWeight:950}}>{selected?"✓ ATIVO":"USAR"}</span></div><div style={{fontSize:22,fontWeight:950,color:C.neon,margin:"7px 0"}}>{moneyBR(pkg.value)}<span style={{fontSize:10,color:C.dim}}> / mês</span></div><div style={{fontSize:10,fontWeight:900,letterSpacing:1.5,textTransform:"uppercase",color:C.orange}}>{pkg.badge}</div><div style={{fontSize:11,color:C.dim,lineHeight:1.6,marginTop:7}}>{pkg.weekly.arts} artes/semana · {pkg.weekly.reels} Reels/semana · gestão inclusa</div></button>})}
+            </div>
+            {planSnapshot&&<div style={{...ocrd,padding:14,marginTop:12}}><div style={{fontSize:11,fontWeight:950,color:C.orange,letterSpacing:2,textTransform:"uppercase",marginBottom:7}}>Escopo oficial selecionado</div><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(145px,1fr))",gap:8}}><div><b style={{color:C.neon}}>{planSnapshot.weekly.arts}</b><span style={{fontSize:11,color:C.dim}}> artes/semana</span></div><div><b style={{color:C.neon}}>{planSnapshot.weekly.reels}</b><span style={{fontSize:11,color:C.dim}}> Reels/semana</span></div><div><b style={{color:C.neon}}>{planSnapshot.monthly.arts}</b><span style={{fontSize:11,color:C.dim}}> artes/mês</span></div><div><b style={{color:C.neon}}>{planSnapshot.monthly.reels}</b><span style={{fontSize:11,color:C.dim}}> Reels/mês</span></div></div><p style={{fontSize:11,color:C.dim,lineHeight:1.7,margin:"10px 0 0",whiteSpace:"pre-line"}}>{packageDeliverablesText(planSnapshot)}</p></div>}
           </div>
 
           <div style={ncrd}>
@@ -3199,6 +3258,12 @@ function CoralFilmsApp(){
     const mm=String(client.month).padStart(2,"0");
     const linksResumo=(client.links||[]).filter(l=>l.url).map(l=>`- ${l.label||"Arquivo"}: ${l.url}`).join("\n")||"nenhum";
     const imagensResumo=(client.images||[]).length?`${client.images.length} imagem(ns) de referência anexada(s) no cadastro. Use isso como indicação visual do cliente, sem tentar enviar ou analisar a imagem pela API.`:"nenhuma";
+    const commercialPackage = normalizeCommercialPlanSnapshot(client.commercialPackage || client.commercialProposal?.commercialPlanSnapshot || null, client.commercialPlanKey || client.commercialProposal?.commercialPlanKey || "");
+    const contractScope = buildContractScopeForAi(commercialPackage);
+    const contractedItemsResumo = (client.commercialProposal?.items||[]).map(item=>`- ${item.serviceName}: ${item.descricao || "sem descrição"} | ${Number(item.quantidade||1)} x ${moneyBR(item.valorUnitario)}`).join("\n") || "nenhum item de proposta vinculado";
+    const calendarSkeleton = JSON.stringify(buildCalendarSkeletonForPackage(commercialPackage,mm,client.niche||"negócio local"),null,2);
+    const reelsSkeleton = JSON.stringify(buildReelsSkeletonForPackage(commercialPackage,client.niche||"negócio local"),null,2);
+    const scopeResumo = contractScope ? `PLANO COMERCIAL CONTRATADO (FONTE OFICIAL):\n- Plano: ${contractScope.packageName}\n- Valor mensal: ${moneyBR(contractScope.value)}\n- Entrega semanal: ${contractScope.weeklyArts} arte(s), ${contractScope.weeklyReels} Reels e ${contractScope.weeklyStories} Stories/sequências.\n- Entrega mensal máxima: ${contractScope.monthlyArts} arte(s), ${contractScope.monthlyReels} Reels e ${contractScope.monthlyStories} Stories/sequências.\n- Gestão: ${contractScope.management}.\n- Planejamento: ${contractScope.planning}.\n- Relatório: ${contractScope.report}.\n- Regra: não criar obrigação de entrega acima disso.` : "Nenhum pacote comercial vinculado. Use um planejamento padrão, mas sinalize que o escopo precisa ser definido na proposta.";
     const prompt=`Você é um estrategista sênior de marketing digital para negócios locais, social media e performance.
 Crie um plano de marketing mensal profissional, prático e pronto para apresentar ao cliente.
 
@@ -3213,6 +3278,11 @@ DADOS DO CLIENTE:
 - Links cadastrados: ${linksResumo}
 - Referências visuais: ${imagensResumo}
 
+${scopeResumo}
+
+ITENS DA PROPOSTA APROVADA:
+${contractedItemsResumo}
+
 REGRAS DO PLANO:
 - Pense como uma agência premium.
 - Use linguagem clara, estratégica e comercial.
@@ -3222,6 +3292,12 @@ REGRAS DO PLANO:
 - O calendário deve equilibrar Autoridade, Conexão e Conversão.
 - Os Reels devem ter estrutura de cena forte, com hook, desenvolvimento e CTA.
 - As metas devem ser realistas e ligadas a alcance, seguidores, engajamento e conversão.
+- A proposta aprovada é a fonte oficial da verdade.
+- O planejamento deve respeitar exatamente o pacote contratado.
+- Não ultrapasse a quantidade semanal e mensal de artes, Reels e Stories do pacote.
+- Qualquer sugestão fora do pacote deve ir em "outOfScope" como oportunidade comercial, nunca como obrigação de entrega.
+- O calendário deve seguir esta base de quantidade e formato, podendo trocar apenas os temas: ${calendarSkeleton}
+- A lista de Reels deve ter exatamente a quantidade contratada neste modelo: ${reelsSkeleton}
 
 IMPORTANTE:
 Responda APENAS com um JSON válido.
@@ -3273,7 +3349,7 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
       // extrai JSON mesmo que venha com texto antes/depois
       const match = raw.match(/\{[\s\S]*\}/);
       if(!match) throw new Error("JSON não encontrado na resposta");
-      const parsed = JSON.parse(match[0]);
+      const parsed = enforcePlanAgainstPackage(JSON.parse(match[0]), commercialPackage, client);
       const planRecord = {id:`plan-${Date.now()}`,createdAt:new Date().toISOString(),month:client.month,year:client.year,plan:parsed};
       let updatedClient = {...client,lastPlan:parsed,lastPlanId:planRecord.id,plans:[...(client.plans||[]),planRecord]};
 
@@ -3667,6 +3743,11 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
     }));
   };
 
+  const applyCommercialPackageToProposal = (packageKey)=>{
+    const pkg=getCommercialPackage(packageKey); if(!pkg) return;
+    setProposalForm(f=>{const snap=normalizeCommercialPlanSnapshot(pkg); const item=buildPackageProposalItem(snap); const scope=packageDeliverablesText(snap); return {...f,commercialPlanKey:snap.key,commercialPlanName:snap.name,commercialPlanSnapshot:snap,items:[{...item,proposalId:f.id||""}],descontoValor:0,descontoPercentual:0,objetivos:f.objetivos || `Plano ${snap.name} para fortalecer a presença digital, produzir conteúdo recorrente e organizar a comunicação mensal do cliente.`,observacoesComerciais:`Plano contratado: ${snap.name} (${moneyBR(snap.value)}/mês).\n${scope}\nQualquer entrega adicional fora deste pacote deverá ser tratada como proposta complementar.`,condicoesPagamento:f.condicoesPagamento || "Pagamento mensal recorrente conforme plano contratado."};});
+  };
+
   const toggleProposalService = (service)=>{
     setProposalForm(f=>{
       const current = f.items || [];
@@ -3706,7 +3787,13 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
 
   const saveProposal = async()=>{
     if(!proposalForm.empresa.trim()) return alert("Informe a empresa da proposta.");
+    if(!proposalForm.commercialPlanKey) return alert("Selecione um plano comercial da proposta: Essencial, Pro ou Premium.");
     if((proposalForm.items||[]).length===0) return alert("Selecione pelo menos um serviço do catálogo.");
+    const selectedPackage = normalizeCommercialPlanSnapshot(proposalForm.commercialPlanSnapshot, proposalForm.commercialPlanKey);
+    const preTotals = proposalTotals(proposalForm.items, proposalForm.descontoValor, proposalForm.descontoPercentual);
+    const monthlyValue = selectedPackage?.value || preTotals.valorMensal || preTotals.valorFinal;
+    if(monthlyValue < COMMERCIAL_PACKAGE_MIN) return alert(`A Coral Films não vende proposta mensal abaixo de ${moneyBR(COMMERCIAL_PACKAGE_MIN)}.`);
+    if(monthlyValue > COMMERCIAL_PACKAGE_MAX) return alert(`A Coral Films não vende proposta mensal acima de ${moneyBR(COMMERCIAL_PACKAGE_MAX)} neste fluxo.`);
 
     let proposal = normalizeProposal({
       ...proposalForm,
@@ -3716,6 +3803,9 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
     const totals = proposalTotals(proposalForm.items, proposal.descontoValor, proposal.descontoPercentual);
     proposal = {
       ...proposal,
+      commercialPlanKey:selectedPackage?.key || proposal.commercialPlanKey,
+      commercialPlanName:selectedPackage?.name || proposal.commercialPlanName,
+      commercialPlanSnapshot:selectedPackage || proposal.commercialPlanSnapshot,
       valorTabela:totals.valorTabela,
       descontoTotal:totals.descontoTotal,
       valorFinal:totals.valorFinal
@@ -3735,6 +3825,9 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
         ...cloud.data,
         leadId:proposal.leadId,
         leadSupabaseId:proposal.leadSupabaseId,
+        commercialPlanKey:proposal.commercialPlanKey,
+        commercialPlanName:proposal.commercialPlanName,
+        commercialPlanSnapshot:proposal.commercialPlanSnapshot,
         valorTabela:totals.valorTabela,
         descontoTotal:totals.descontoTotal,
         valorFinal:totals.valorFinal
@@ -3801,6 +3894,8 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
 
   const convertProposalToClient = async(proposal)=>{
     const related = proposalItems.filter(item=>String(item.proposalId)===String(proposal.id) || (proposal.supabaseId && String(item.proposalId)===String(proposal.supabaseId)));
+    const commercialPackage = normalizeCommercialPlanSnapshot(proposal.commercialPlanSnapshot, proposal.commercialPlanKey);
+    const commercialScopeText = commercialPackage ? packageDeliverablesText(commercialPackage) : "";
     if(!related.length){
       if(!confirm("Esta proposta não tem itens vinculados. Deseja converter mesmo assim?")) return;
     }
@@ -3812,7 +3907,10 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
       niche:existing.niche || proposal.segmento || "",
       instagram:existing.instagram || String(proposal.instagram||"").replace("@",""),
       notes:existing.notes || proposal.objetivos || "",
-      extra:[existing.extra,`Convertido pelo módulo Comercial em ${new Date().toLocaleDateString("pt-BR")}. Valor final da proposta: ${moneyBR(proposal.valorFinal)}.`].filter(Boolean).join("\n\n")
+      extra:[existing.extra,`Convertido pelo módulo Comercial em ${new Date().toLocaleDateString("pt-BR")}. Valor final da proposta: ${moneyBR(proposal.valorFinal)}.`, commercialPackage?`Plano contratado: ${commercialPackage.name} (${moneyBR(commercialPackage.value)}/mês).\n${commercialScopeText}`:""].filter(Boolean).join("\n\n"),
+      commercialPlanKey:commercialPackage?.key || existing.commercialPlanKey || "",
+      commercialPackage:commercialPackage || existing.commercialPackage || null,
+      commercialProposal:{...proposal,items:related}
     } : {
       id:newLocalId(),
       name:proposal.empresa || "Cliente sem nome",
@@ -3822,7 +3920,15 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
       month:new Date().getMonth()+1,
       year:new Date().getFullYear(),
       notes:proposal.objetivos || `Cliente convertido a partir da proposta comercial ${proposal.empresa}.`,
-      extra:`Origem: Módulo Comercial do ${APP_NAME}.\nResponsável: ${proposal.responsavel || "não informado"}\nWhatsApp: ${proposal.whatsapp || "não informado"}\nValor final da proposta: ${moneyBR(proposal.valorFinal)}.`,
+      extra:`Origem: Módulo Comercial do ${APP_NAME}.
+Responsável: ${proposal.responsavel || "não informado"}
+WhatsApp: ${proposal.whatsapp || "não informado"}
+Valor final da proposta: ${moneyBR(proposal.valorFinal)}.${commercialPackage?`
+Plano contratado: ${commercialPackage.name} (${moneyBR(commercialPackage.value)}/mês).
+${commercialScopeText}`:""}`,
+      commercialPlanKey:commercialPackage?.key || "",
+      commercialPackage:commercialPackage || null,
+      commercialProposal:{...proposal,items:related},
       links:[],
       images:[],
       approvalLinks:[{type:"Vídeo",label:"",url:""}],
@@ -4273,6 +4379,7 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
           leads={leads}
           services={services}
           onLeadChange={onProposalLeadChange}
+          onApplyPackage={applyCommercialPackageToProposal}
           onToggleService={toggleProposalService}
           onUpdateItem={updateProposalItem}
           onRemoveItem={removeProposalItem}
