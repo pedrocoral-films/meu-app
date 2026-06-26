@@ -2391,7 +2391,7 @@ function CreativeStudioHero({client,plan,onRegen,onExportPlan,onExportFinal,onEd
   </div>;
 }
 
-function PlanView({client,plan,onRegen,onExportPlan,onExportFinal,onEditClient}){
+function PlanView({client,plan,onRegen,onExportPlan,onExportFinal,onEditClient,onBackToStudio=()=>{}}){
   const [tab,setTab]=useState("briefing");
   const enhanced = enhanceCreativeStudioPlan(plan, client.commercialPackage || client.commercialProposal?.commercialPlanSnapshot || null, client);
   const scope = enhanced.contractScope || buildContractScopeForAi(client.commercialPackage);
@@ -2410,6 +2410,10 @@ function PlanView({client,plan,onRegen,onExportPlan,onExportFinal,onEditClient})
   ];
   return(
     <div className="creative-lab-content" style={{maxWidth:"100%",margin:"0 auto",padding:"24px 20px"}}>
+      <div className="studio-return-console" style={{position:"sticky",top:14,zIndex:45,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:16,padding:"10px 12px",borderRadius:22,background:"linear-gradient(135deg,rgba(0,0,0,.88),rgba(3,8,18,.78))",border:"1px solid rgba(0,213,255,.28)",boxShadow:"0 0 32px rgba(0,213,255,.12),0 18px 48px rgba(0,0,0,.42)",backdropFilter:"blur(16px)"}}>
+        <button type="button" className="studio-nav-button" style={{...btn("neon","sm"),borderRadius:999,boxShadow:"0 0 24px rgba(0,213,255,.28)",minHeight:42}} onClick={onBackToStudio}>← Voltar ao Studio</button>
+        <div style={{fontSize:10,fontWeight:950,letterSpacing:2,textTransform:"uppercase",color:"#7fefff",textShadow:"0 0 18px rgba(0,213,255,.38)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Laboratório do cliente · {client.name}</div>
+      </div>
       <CreativeStudioHero client={client} plan={enhanced} onRegen={onRegen} onExportPlan={onExportPlan} onExportFinal={onExportFinal} onEditClient={onEditClient}/>
 
       {scope && <div style={{...ncrd,marginBottom:18,borderRadius:24}}>
@@ -4832,6 +4836,7 @@ ${commercialScopeText}`:""}`,
           onExportPlan={()=>openPremiumPdf(active,plan,"plan")}
           onExportFinal={()=>openPremiumPdf(active,plan,"approval")}
           onEditClient={()=>startEdit(active)}
+          onBackToStudio={()=>setScreen("list")}
         />
       )}
 
