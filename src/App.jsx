@@ -65,6 +65,19 @@ const LEAD_STATUS_OPTIONS = [
 
 const PROPOSAL_STATUS_OPTIONS = ["Rascunho","Enviada","Em negociação","Aprovada","Convertida","Recusada"];
 const SERVICE_TYPE_OPTIONS = ["Mensal","Implementação","Projeto"];
+const LEGAL_FINANCE_STORAGE_KEY = "coral_hub_legal_finance_v1";
+const CONTRACT_STATUS_OPTIONS = ["Gerado","Enviado","Aguardando Assinatura","PDF Assinado Recebido","Assinado","Ativo","Encerrado","Cancelado"];
+const PAYMENT_STATUS_OPTIONS = ["Em Aberto","Pago","Atrasado","Cancelado"];
+const RECURRENCE_OPTIONS = ["Mensal","Trimestral","Semestral","Anual"];
+const RECURRENCE_MONTHS = {Mensal:1,Trimestral:3,Semestral:6,Anual:12};
+const CORAL_COMPANY_DATA = {
+  razaoSocial:"Coral Films",
+  nomeFantasia:"Coral Films",
+  documento:"CNPJ a informar",
+  endereco:"Endereço comercial a informar",
+  email:"contato@coralfilms.com.br",
+  telefone:""
+};
 
 const DEFAULT_SERVICES = [
   {
@@ -200,7 +213,13 @@ function emptyProposalForm(){
     instagram:"",
     cidade:"",
     segmento:"",
+    cpfCnpj:"",
+    endereco:"",
+    vigencia:"12 meses",
+    diaVencimento:10,
+    formaPagamento:"PIX",
     objetivos:"",
+    observacoesComerciais:"",
     condicoesPagamento:"Entrada de 50% para início do projeto e saldo conforme cronograma aprovado. Serviços mensais são cobrados de forma recorrente.",
     proximosPassos:"1. Aprovação da proposta. 2. Alinhamento estratégico. 3. Início da produção. 4. Entrega e acompanhamento.",
     status:"Rascunho",
@@ -279,7 +298,13 @@ function normalizeProposal(row={}){
     instagram:row.instagram || snapshot.instagram || "",
     cidade:row.cidade || snapshot.cidade || "",
     segmento:row.segmento || snapshot.segmento || "",
+    cpfCnpj:row.cpfCnpj || row.cpf_cnpj || snapshot.cpfCnpj || snapshot.cpf_cnpj || "",
+    endereco:row.endereco || snapshot.endereco || "",
+    vigencia:row.vigencia || snapshot.vigencia || "12 meses",
+    diaVencimento:Number(row.diaVencimento ?? row.dia_vencimento ?? snapshot.diaVencimento ?? 10) || 10,
+    formaPagamento:row.formaPagamento || row.forma_pagamento || snapshot.formaPagamento || "PIX",
     objetivos:row.objetivos || "",
+    observacoesComerciais:row.observacoesComerciais || row.observacoes_comerciais || "",
     condicoesPagamento:row.condicoesPagamento || row.condicoes_pagamento || "",
     proximosPassos:row.proximosPassos || row.proximos_passos || "",
     status:PROPOSAL_STATUS_OPTIONS.includes(row.status) ? row.status : "Rascunho",
@@ -325,6 +350,434 @@ function proposalTotals(items=[],descontoValor=0,descontoPercentual=0){
   const descontoTotal = Math.min(valorTabela, Math.max(0,toNumber(descontoValor)) + descontoPercentualValor);
   const valorFinal = Math.max(0, valorTabela - descontoTotal);
   return {valorTabela,valorImplementacao,valorMensal,valorProjeto,descontoPercentualValor,descontoTotal,valorFinal};
+}
+
+
+function todayIso(){
+  return new Date().toISOString().slice(0,10);
+}
+
+function toIsoDate(value){
+  if(!value) return todayIso();
+  if(value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0,10);
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? todayIso() : d.toISOString().slice(0,10);
+}
+
+function dateBR(value){
+  if(!value) return "-";
+  const d = new Date(String(value).includes("T") ? value : `${value}T12:00:00`);
+  if(Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleDateString("pt-BR");
+}
+
+function addMonthsIso(value,months=1){
+  const d = new Date(`${toIsoDate(value)}T12:00:00`);
+  d.setMonth(d.getMonth()+Number(months||1));
+  return d.toISOString().slice(0,10);
+}
+
+function daysUntil(value){
+  const today = new Date(`${todayIso()}T00:00:00`);
+  const d = new Date(`${toIsoDate(value)}T00:00:00`);
+  return Math.round((d-today)/(1000*60*60*24));
+}
+
+function nextDateWithDay(day=10){
+  const d = new Date();
+  const wanted = Math.min(28,Math.max(1,Number(day||10)));
+  d.setDate(wanted);
+  if(d < new Date()) d.setMonth(d.getMonth()+1);
+  return d.toISOString().slice(0,10);
+}
+
+function normalizeContract(row={}){
+  const proposalSnapshot = row.proposalSnapshot || row.proposal_snapshot || {};
+  const clientSnapshot = row.clientSnapshot || row.client_snapshot || proposalSnapshot || {};
+  const checklist = row.checklist || {};
+  return {
+    id:String(row.id || row.supabaseId || newLocalId()),
+    supabaseId:row.supabaseId || (row.id && isCloudId(row.id) ? row.id : null),
+    number:row.number || row.numero || row.contract_number || "",
+    proposalId:String(row.proposalId || row.proposal_id || proposalSnapshot.id || ""),
+    leadId:String(row.leadId || row.lead_id || proposalSnapshot.leadId || ""),
+    clientName:row.clientName || row.client_name || clientSnapshot.empresa || proposalSnapshot.empresa || "Cliente sem nome",
+    clientDocument:row.clientDocument || row.client_document || proposalSnapshot.cpfCnpj || proposalSnapshot.cpf_cnpj || "",
+    clientAddress:row.clientAddress || row.client_address || proposalSnapshot.endereco || "",
+    clientEmail:row.clientEmail || row.client_email || proposalSnapshot.email || "",
+    clientWhatsapp:row.clientWhatsapp || row.client_whatsapp || proposalSnapshot.whatsapp || proposalSnapshot.telefone || "",
+    services:row.services || row.servicos || "",
+    serviceItems:Array.isArray(row.serviceItems || row.service_items) ? (row.serviceItems || row.service_items) : [],
+    value:toNumber(row.value ?? row.valor),
+    monthlyValue:toNumber(row.monthlyValue ?? row.monthly_value),
+    paymentMethod:row.paymentMethod || row.payment_method || proposalSnapshot.formaPagamento || "PIX",
+    recurrence:row.recurrence || row.recorrencia || "Mensal",
+    dueDay:Number(row.dueDay ?? row.due_day ?? proposalSnapshot.diaVencimento ?? 10) || 10,
+    validity:row.validity || row.vigencia || proposalSnapshot.vigencia || "12 meses",
+    issueDate:toIsoDate(row.issueDate || row.issue_date || row.created_at || new Date()),
+    signedAt:row.signedAt || row.signed_at || null,
+    status:CONTRACT_STATUS_OPTIONS.includes(row.status) ? row.status : "Gerado",
+    locked:Boolean(row.locked || row.bloqueado || false),
+    pdfOriginalUrl:row.pdfOriginalUrl || row.pdf_original_url || "",
+    pdfSignedUrl:row.pdfSignedUrl || row.pdf_signed_url || "",
+    signedPdfName:row.signedPdfName || row.signed_pdf_name || "",
+    proposalSnapshot,
+    clientSnapshot,
+    checklist:{
+      generated:Boolean(checklist.generated ?? checklist.contratoGerado ?? true),
+      downloaded:Boolean(checklist.downloaded ?? checklist.pdfBaixado ?? false),
+      sent:Boolean(checklist.sent ?? checklist.enviadoCliente ?? false),
+      signedReceived:Boolean(checklist.signedReceived ?? checklist.pdfAssinadoRecebido ?? false),
+      planCreated:Boolean(checklist.planCreated ?? checklist.planoMensalCriado ?? false),
+      clientActive:Boolean(checklist.clientActive ?? checklist.clienteAtivo ?? false)
+    },
+    history:Array.isArray(row.history || row.historico) ? (row.history || row.historico) : [],
+    createdAt:row.createdAt || row.created_at || new Date().toISOString(),
+    updatedAt:row.updatedAt || row.updated_at || new Date().toISOString()
+  };
+}
+
+function normalizeSubscriptionPlan(row={}){
+  return {
+    id:String(row.id || row.supabaseId || newLocalId()),
+    supabaseId:row.supabaseId || (row.id && isCloudId(row.id) ? row.id : null),
+    contractId:String(row.contractId || row.contract_id || ""),
+    clientName:row.clientName || row.client_name || "Cliente sem nome",
+    value:toNumber(row.value ?? row.valor),
+    firstDueDate:toIsoDate(row.firstDueDate || row.first_due_date || new Date()),
+    dueDay:Number(row.dueDay ?? row.due_day ?? 10) || 10,
+    paymentMethod:row.paymentMethod || row.payment_method || "PIX",
+    recurrence:RECURRENCE_OPTIONS.includes(row.recurrence || row.recorrencia) ? (row.recurrence || row.recorrencia) : "Mensal",
+    status:row.status || "Ativo",
+    createdAt:row.createdAt || row.created_at || new Date().toISOString(),
+    updatedAt:row.updatedAt || row.updated_at || new Date().toISOString()
+  };
+}
+
+function normalizeRecurringPayment(row={}){
+  const dueDate = toIsoDate(row.dueDate || row.due_date || new Date());
+  const baseStatus = PAYMENT_STATUS_OPTIONS.includes(row.status) ? row.status : "Em Aberto";
+  return {
+    id:String(row.id || row.supabaseId || newLocalId()),
+    supabaseId:row.supabaseId || (row.id && isCloudId(row.id) ? row.id : null),
+    planId:String(row.planId || row.plan_id || ""),
+    contractId:String(row.contractId || row.contract_id || ""),
+    clientName:row.clientName || row.client_name || "Cliente sem nome",
+    value:toNumber(row.value ?? row.valor),
+    dueDate,
+    paidAt:row.paidAt || row.paid_at || null,
+    status:baseStatus==="Em Aberto" && daysUntil(dueDate)<0 ? "Atrasado" : baseStatus,
+    receiptUrl:row.receiptUrl || row.receipt_url || "",
+    createdAt:row.createdAt || row.created_at || new Date().toISOString(),
+    updatedAt:row.updatedAt || row.updated_at || new Date().toISOString()
+  };
+}
+
+function normalizeNotification(row={}){
+  return {
+    id:String(row.id || row.supabaseId || newLocalId()),
+    supabaseId:row.supabaseId || (row.id && isCloudId(row.id) ? row.id : null),
+    type:row.type || row.tipo || "Sistema",
+    title:row.title || row.titulo || "Notificação",
+    message:row.message || row.mensagem || "",
+    relatedType:row.relatedType || row.related_type || "",
+    relatedId:String(row.relatedId || row.related_id || ""),
+    status:row.status || "Ativa",
+    createdAt:row.createdAt || row.created_at || new Date().toISOString(),
+    resolvedAt:row.resolvedAt || row.resolved_at || null
+  };
+}
+
+function contractNumber(existing=[]){
+  const year = new Date().getFullYear();
+  const count = (existing||[]).filter(c=>String(c.number||"").includes(`CF-${year}`)).length + 1;
+  return `CF-${year}-${String(count).padStart(4,"0")}`;
+}
+
+function createContractFromProposal(proposal,items=[],existingContracts=[]){
+  const totals = proposalTotals(items, proposal.descontoValor, proposal.descontoPercentual);
+  const monthlyValue = totals.valorMensal || totals.valorFinal || proposal.valorFinal || 0;
+  const serviceItems = (items||[]).map(item=>({
+    serviceName:item.serviceName,
+    descricao:item.descricao,
+    tipo:item.tipo,
+    quantidade:Number(item.quantidade||1),
+    valorUnitario:toNumber(item.valorUnitario)
+  }));
+  const snapshot = normalizeProposal({...proposal,items:serviceItems});
+  return normalizeContract({
+    id:newLocalId(),
+    number:contractNumber(existingContracts),
+    proposalId:proposal.id,
+    leadId:proposal.leadId,
+    clientName:proposal.empresa || "Cliente sem nome",
+    clientDocument:proposal.cpfCnpj || "",
+    clientAddress:proposal.endereco || "",
+    clientEmail:proposal.email || "",
+    clientWhatsapp:proposal.whatsapp || proposal.telefone || "",
+    services:serviceItems.map(i=>i.serviceName).filter(Boolean).join(", "),
+    serviceItems,
+    value:totals.valorFinal || proposal.valorFinal || totals.valorTabela,
+    monthlyValue,
+    paymentMethod:proposal.formaPagamento || "PIX",
+    dueDay:proposal.diaVencimento || 10,
+    validity:proposal.vigencia || "12 meses",
+    issueDate:todayIso(),
+    status:"Gerado",
+    proposalSnapshot:snapshot,
+    clientSnapshot:snapshot,
+    checklist:{generated:true,downloaded:false,sent:false,signedReceived:false,planCreated:false,clientActive:false},
+    history:[{at:new Date().toISOString(),label:"Contrato gerado automaticamente a partir da proposta aprovada."}]
+  });
+}
+
+function createPlanFromContract(contract,overrides={}){
+  const value = toNumber(overrides.value ?? contract.monthlyValue ?? contract.value);
+  return normalizeSubscriptionPlan({
+    id:newLocalId(),
+    contractId:contract.id,
+    clientName:contract.clientName,
+    value,
+    firstDueDate:overrides.firstDueDate || nextDateWithDay(contract.dueDay || 10),
+    dueDay:overrides.dueDay || contract.dueDay || 10,
+    paymentMethod:overrides.paymentMethod || contract.paymentMethod || "PIX",
+    recurrence:overrides.recurrence || contract.recurrence || "Mensal",
+    status:"Ativo"
+  });
+}
+
+function buildPaymentForPlan(plan,dueDate,index=0){
+  return normalizeRecurringPayment({
+    id:`pay-${plan.id}-${dueDate}`,
+    planId:plan.id,
+    contractId:plan.contractId,
+    clientName:plan.clientName,
+    value:plan.value,
+    dueDate,
+    status:"Em Aberto",
+    createdAt:new Date().toISOString(),
+    updatedAt:new Date().toISOString(),
+    installment:index+1
+  });
+}
+
+function ensureRecurringPayments(plans=[],payments=[]){
+  const next = [...(payments||[]).map(normalizeRecurringPayment)];
+  const existing = new Set(next.map(p=>`${p.planId}|${p.dueDate}`));
+  const today = todayIso();
+  (plans||[]).map(normalizeSubscriptionPlan).filter(p=>p.status==="Ativo").forEach(plan=>{
+    const step = RECURRENCE_MONTHS[plan.recurrence] || 1;
+    let due = toIsoDate(plan.firstDueDate || nextDateWithDay(plan.dueDay));
+    for(let i=0;i<12;i++){
+      const key = `${plan.id}|${due}`;
+      if(!existing.has(key)){
+        next.push(buildPaymentForPlan(plan,due,i));
+        existing.add(key);
+      }
+      due = addMonthsIso(due,step);
+    }
+  });
+  return next.map(p=>p.status==="Em Aberto" && p.dueDate < today ? {...p,status:"Atrasado"} : p);
+}
+
+function legalFinanceLocalData(){
+  const raw = safeJsonParse(window.localStorage?.getItem(LEGAL_FINANCE_STORAGE_KEY));
+  return {
+    contracts:Array.isArray(raw?.contracts) ? raw.contracts.map(normalizeContract) : [],
+    plans:Array.isArray(raw?.plans) ? raw.plans.map(normalizeSubscriptionPlan) : [],
+    payments:Array.isArray(raw?.payments) ? raw.payments.map(normalizeRecurringPayment) : [],
+    notifications:Array.isArray(raw?.notifications) ? raw.notifications.map(normalizeNotification) : []
+  };
+}
+
+async function dbGetLegalFinance(){
+  const local = legalFinanceLocalData();
+  if(!isSupabaseReady()) return local;
+  try{
+    const [contractsRes,plansRes,paymentsRes,notificationsRes] = await Promise.all([
+      supabase.from("contracts").select("*").order("created_at",{ascending:false}),
+      supabase.from("subscription_plans").select("*").order("created_at",{ascending:false}),
+      supabase.from("recurring_payments").select("*").order("due_date",{ascending:true}),
+      supabase.from("notifications").select("*").order("created_at",{ascending:false})
+    ]);
+    const hasError = [contractsRes,plansRes,paymentsRes,notificationsRes].some(r=>r.error);
+    if(hasError){
+      console.warn("Jurídico/Financeiro usando cache local. Execute a migration no Supabase para ativar a nuvem.",{contracts:contractsRes.error,plans:plansRes.error,payments:paymentsRes.error,notifications:notificationsRes.error});
+      return local;
+    }
+    return {
+      contracts:(contractsRes.data||[]).map(normalizeContract),
+      plans:(plansRes.data||[]).map(normalizeSubscriptionPlan),
+      payments:(paymentsRes.data||[]).map(normalizeRecurringPayment),
+      notifications:(notificationsRes.data||[]).map(normalizeNotification)
+    };
+  }catch(error){
+    console.warn("Erro ao carregar Jurídico/Financeiro:", error);
+    return local;
+  }
+}
+
+async function dbSetLegalFinance(data){
+  const normalized = {
+    contracts:(data.contracts||[]).map(normalizeContract),
+    plans:(data.plans||[]).map(normalizeSubscriptionPlan),
+    payments:(data.payments||[]).map(normalizeRecurringPayment),
+    notifications:(data.notifications||[]).map(normalizeNotification)
+  };
+  try{
+    window.localStorage?.setItem(LEGAL_FINANCE_STORAGE_KEY, JSON.stringify(normalized));
+    return {ok:true};
+  }catch(error){
+    console.warn("Erro ao salvar Jurídico/Financeiro localmente:", error);
+    return {ok:false,error};
+  }
+}
+
+async function salvarContractSupabase(contract){
+  if(!isSupabaseReady()) return {ok:false,skipped:true};
+  const payload = {
+    contract_number:contract.number,
+    proposal_id:contract.proposalId && isCloudId(contract.proposalId) ? contract.proposalId : null,
+    lead_id:contract.leadId && isCloudId(contract.leadId) ? contract.leadId : null,
+    client_name:contract.clientName,
+    client_document:contract.clientDocument,
+    client_address:contract.clientAddress,
+    client_email:contract.clientEmail,
+    client_whatsapp:contract.clientWhatsapp,
+    services:contract.services,
+    service_items:contract.serviceItems || [],
+    value:toNumber(contract.value),
+    monthly_value:toNumber(contract.monthlyValue),
+    payment_method:contract.paymentMethod,
+    recurrence:contract.recurrence,
+    due_day:Number(contract.dueDay||10),
+    validity:contract.validity,
+    issue_date:contract.issueDate,
+    signed_at:contract.signedAt,
+    status:contract.status,
+    locked:Boolean(contract.locked),
+    pdf_original_url:contract.pdfOriginalUrl,
+    pdf_signed_url:contract.pdfSignedUrl,
+    signed_pdf_name:contract.signedPdfName,
+    checklist:contract.checklist || {},
+    history:contract.history || [],
+    proposal_snapshot:contract.proposalSnapshot || {},
+    client_snapshot:contract.clientSnapshot || {}
+  };
+  try{
+    const dbId = contract.supabaseId || (contract.id && isCloudId(contract.id) ? contract.id : null);
+    if(dbId){
+      const {data,error} = await supabase.from("contracts").update(payload).eq("id",dbId).select("*").single();
+      if(error) throw error;
+      return {ok:true,data:normalizeContract(data),id:data.id,updated:true};
+    }
+    const {data,error} = await supabase.from("contracts").insert([payload]).select("*").single();
+    if(error) throw error;
+    return {ok:true,data:normalizeContract(data),id:data.id};
+  }catch(error){
+    console.warn("Contrato salvo apenas localmente:", error);
+    return {ok:false,error};
+  }
+}
+
+async function salvarSubscriptionSupabase(plan){
+  if(!isSupabaseReady()) return {ok:false,skipped:true};
+  const payload = {
+    contract_id:plan.contractId && isCloudId(plan.contractId) ? plan.contractId : null,
+    client_name:plan.clientName,
+    value:toNumber(plan.value),
+    first_due_date:plan.firstDueDate,
+    due_day:Number(plan.dueDay||10),
+    payment_method:plan.paymentMethod,
+    recurrence:plan.recurrence,
+    status:plan.status
+  };
+  try{
+    const dbId = plan.supabaseId || (plan.id && isCloudId(plan.id) ? plan.id : null);
+    if(dbId){
+      const {data,error} = await supabase.from("subscription_plans").update(payload).eq("id",dbId).select("*").single();
+      if(error) throw error;
+      return {ok:true,data:normalizeSubscriptionPlan(data),id:data.id,updated:true};
+    }
+    const {data,error} = await supabase.from("subscription_plans").insert([payload]).select("*").single();
+    if(error) throw error;
+    return {ok:true,data:normalizeSubscriptionPlan(data),id:data.id};
+  }catch(error){
+    console.warn("Plano recorrente salvo apenas localmente:", error);
+    return {ok:false,error};
+  }
+}
+
+async function salvarPaymentSupabase(payment){
+  if(!isSupabaseReady()) return {ok:false,skipped:true};
+  const payload = {
+    plan_id:payment.planId && isCloudId(payment.planId) ? payment.planId : null,
+    contract_id:payment.contractId && isCloudId(payment.contractId) ? payment.contractId : null,
+    client_name:payment.clientName,
+    value:toNumber(payment.value),
+    due_date:payment.dueDate,
+    paid_at:payment.paidAt,
+    status:payment.status,
+    receipt_url:payment.receiptUrl
+  };
+  try{
+    const dbId = payment.supabaseId || (payment.id && isCloudId(payment.id) ? payment.id : null);
+    if(dbId){
+      const {data,error} = await supabase.from("recurring_payments").update(payload).eq("id",dbId).select("*").single();
+      if(error) throw error;
+      return {ok:true,data:normalizeRecurringPayment(data),id:data.id,updated:true};
+    }
+    const {data,error} = await supabase.from("recurring_payments").insert([payload]).select("*").single();
+    if(error) throw error;
+    return {ok:true,data:normalizeRecurringPayment(data),id:data.id};
+  }catch(error){
+    console.warn("Cobrança salva apenas localmente:", error);
+    return {ok:false,error};
+  }
+}
+
+function buildAutoNotifications(contracts=[],payments=[]){
+  const out = [];
+  (payments||[]).forEach(payment=>{
+    if(["Pago","Cancelado"].includes(payment.status)) return;
+    const diff = daysUntil(payment.dueDate);
+    if(diff===0) out.push({id:`today-${payment.id}`,type:"Cobrança",title:"Hoje vence",message:`${payment.clientName} · ${moneyBR(payment.value)}`,relatedType:"payment",relatedId:payment.id,priority:"high"});
+    if(diff===1) out.push({id:`tomorrow-${payment.id}`,type:"Cobrança",title:"Vence amanhã",message:`${payment.clientName} · ${moneyBR(payment.value)}`,relatedType:"payment",relatedId:payment.id,priority:"medium"});
+    if(diff>=0 && diff<=7) out.push({id:`week-${payment.id}`,type:"Cobrança",title:"Vence esta semana",message:`${dateBR(payment.dueDate)} · ${payment.clientName}`,relatedType:"payment",relatedId:payment.id,priority:"low"});
+    if(payment.status==="Atrasado" || diff<0) out.push({id:`late-${payment.id}`,type:"Atraso",title:"Pagamento atrasado",message:`${payment.clientName} · vencimento ${dateBR(payment.dueDate)}`,relatedType:"payment",relatedId:payment.id,priority:"danger"});
+  });
+  (contracts||[]).forEach(contract=>{
+    if(["Gerado","Enviado","Aguardando Assinatura"].includes(contract.status)){
+      out.push({id:`sign-${contract.id}`,type:"Contrato",title:"Contrato aguardando assinatura",message:`${contract.number} · ${contract.clientName}`,relatedType:"contract",relatedId:contract.id,priority:"medium"});
+    }
+  });
+  return out;
+}
+
+function financeSnapshot(contracts=[],plans=[],payments=[]){
+  const now = new Date();
+  const currentMonth = now.toISOString().slice(0,7);
+  const activeContracts = contracts.filter(c=>c.status==="Ativo").length;
+  const waitingContracts = contracts.filter(c=>["Gerado","Enviado","Aguardando Assinatura"].includes(c.status)).length;
+  const activePlans = plans.filter(p=>p.status==="Ativo");
+  const openPayments = payments.filter(p=>!["Pago","Cancelado"].includes(p.status));
+  const paidMonth = payments.filter(p=>p.status==="Pago" && String(p.paidAt||"").slice(0,7)===currentMonth).reduce((s,p)=>s+toNumber(p.value),0);
+  const paymentsToday = openPayments.filter(p=>daysUntil(p.dueDate)===0);
+  const paymentsWeek = openPayments.filter(p=>{const d=daysUntil(p.dueDate); return d>=0 && d<=7;});
+  const paymentsMonth = openPayments.filter(p=>String(p.dueDate||"").slice(0,7)===currentMonth);
+  return {
+    recurringRevenue:activePlans.reduce((s,p)=>s+toNumber(p.value),0),
+    totalReceivable:openPayments.reduce((s,p)=>s+toNumber(p.value),0),
+    receivedMonth:paidMonth,
+    activeClients:new Set(activePlans.map(p=>p.clientName)).size,
+    activeContracts,
+    waitingContracts,
+    chargesToday:paymentsToday.length,
+    chargesWeek:paymentsWeek.length,
+    chargesMonth:paymentsMonth.length,
+    pendingPayments:openPayments.filter(p=>p.status==="Em Aberto").length,
+    overduePayments:openPayments.filter(p=>p.status==="Atrasado" || daysUntil(p.dueDate)<0).length
+  };
 }
 
 function localCommercialData(){
@@ -472,7 +925,12 @@ async function salvarProposalSupabase(proposal,items=[]){
     email:proposal.email,
     instagram:proposal.instagram,
     cidade:proposal.cidade,
-    segmento:proposal.segmento
+    segmento:proposal.segmento,
+    cpfCnpj:proposal.cpfCnpj,
+    endereco:proposal.endereco,
+    vigencia:proposal.vigencia,
+    diaVencimento:proposal.diaVencimento,
+    formaPagamento:proposal.formaPagamento
   };
 
   const payload = {
@@ -486,6 +944,12 @@ async function salvarProposalSupabase(proposal,items=[]){
     instagram:proposal.instagram || "",
     cidade:proposal.cidade || "",
     segmento:proposal.segmento || "",
+    cpf_cnpj:proposal.cpfCnpj || "",
+    endereco:proposal.endereco || "",
+    vigencia:proposal.vigencia || "12 meses",
+    dia_vencimento:Number(proposal.diaVencimento || 10),
+    forma_pagamento:proposal.formaPagamento || "PIX",
+    observacoes_comerciais:proposal.observacoesComerciais || "",
     objetivos:proposal.objetivos || "",
     condicoes_pagamento:proposal.condicoesPagamento || "",
     proximos_passos:proposal.proximosPassos || "",
@@ -568,6 +1032,39 @@ async function ensureDefaultCommercialServices(data){
 
   try{ await dbSetCommercial(next); }catch{}
   return next;
+}
+
+
+function openSmartContractPdf(contract){
+  if(!contract) return alert("Contrato não encontrado.");
+  const safe = esc;
+  const items = (contract.serviceItems||[]).map((item,index)=>`
+    <tr>
+      <td>${String(index+1).padStart(2,"0")}</td>
+      <td><b>${safe(item.serviceName||"Serviço")}</b><small>${safe(item.tipo||"Serviço")}</small></td>
+      <td>${safe(item.descricao||"Escopo conforme proposta aprovada.")}</td>
+      <td>${Number(item.quantidade||1)}</td>
+      <td>${moneyBR(item.valorUnitario)}</td>
+    </tr>
+  `).join("");
+  const html = `<!doctype html><html><head><meta charset="utf-8"/><title>Contrato ${safe(contract.number)}</title><style>
+    @page{size:A4;margin:0}*{box-sizing:border-box}body{margin:0;font-family:Inter,Arial,sans-serif;background:#05070b;color:#f8fafc;-webkit-print-color-adjust:exact;print-color-adjust:exact}.page{width:210mm;min-height:297mm;padding:20mm;position:relative;background:radial-gradient(circle at 18% 0%,rgba(249,115,22,.18),transparent 32%),radial-gradient(circle at 92% 10%,rgba(0,240,255,.16),transparent 30%),linear-gradient(180deg,#07101a,#05070b)}.page::before{content:"";position:absolute;inset:0;background:linear-gradient(rgba(5,7,11,.40),rgba(5,7,11,.70)),url("${APP_WATERMARK}") center/cover no-repeat;opacity:.26}.content{position:relative;z-index:1}.logo{width:28mm;height:28mm;object-fit:contain;mix-blend-mode:screen;filter:brightness(1.12)}.eyebrow{font-size:8px;letter-spacing:3.5px;text-transform:uppercase;color:#00f0ff;font-weight:900}h1{font-size:30px;line-height:1.05;margin:10mm 0 4mm;letter-spacing:-1.2px}.orange{color:#f97316}.grid{display:grid;grid-template-columns:1fr 1fr;gap:5mm;margin:7mm 0}.card{border:1px solid rgba(255,255,255,.11);background:rgba(15,23,42,.68);border-radius:14px;padding:6mm}p,li{font-size:10.5px;line-height:1.75;color:#d8dee9}b{color:#fff}table{width:100%;border-collapse:collapse;margin-top:5mm;border-radius:12px;overflow:hidden}th{font-size:7.5px;text-transform:uppercase;letter-spacing:1.4px;color:#94a3b8;text-align:left;padding:3mm;background:rgba(255,255,255,.055)}td{font-size:9px;color:#e2e8f0;padding:3mm;border-bottom:1px solid rgba(255,255,255,.08);vertical-align:top}td small{display:block;color:#94a3b8;margin-top:1mm}.sign{display:grid;grid-template-columns:1fr 1fr;gap:10mm;margin-top:16mm}.line{border-top:1px solid rgba(255,255,255,.55);padding-top:3mm;text-align:center;font-size:9px;color:#cbd5e1}.print-actions{position:fixed;right:18px;top:18px;z-index:5;display:flex;gap:8px}.print-actions button{border:0;border-radius:999px;padding:10px 14px;background:#f97316;color:#000;font-weight:900;cursor:pointer}.footer{position:absolute;left:20mm;right:20mm;bottom:10mm;display:flex;justify-content:space-between;color:#64748b;font-size:7px;letter-spacing:1px;text-transform:uppercase}@media print{.print-actions{display:none}}
+  </style></head><body><div class="print-actions"><button onclick="window.print()">Salvar / Imprimir PDF</button><button onclick="window.close()">Fechar</button></div><section class="page"><div class="content"><img class="logo" src="${CORAL_LOGO}"/><div class="eyebrow">Contrato Inteligente · ${safe(APP_NAME)}</div><h1>Contrato nº <span class="orange">${safe(contract.number)}</span></h1><p>Emitido em ${dateBR(contract.issueDate)} para formalizar a prestação de serviços aprovada em proposta comercial.</p><div class="grid"><div class="card"><div class="eyebrow">Contratada</div><p><b>${safe(CORAL_COMPANY_DATA.razaoSocial)}</b><br/>${safe(CORAL_COMPANY_DATA.documento)}<br/>${safe(CORAL_COMPANY_DATA.endereco)}<br/>${safe(CORAL_COMPANY_DATA.email)}</p></div><div class="card"><div class="eyebrow">Contratante</div><p><b>${safe(contract.clientName)}</b><br/>${safe(contract.clientDocument||"CPF/CNPJ não informado") }<br/>${safe(contract.clientAddress||"Endereço não informado")}<br/>${safe(contract.clientEmail||"")} ${contract.clientWhatsapp?" · WhatsApp: "+safe(contract.clientWhatsapp):""}</p></div></div><div class="grid"><div class="card"><div class="eyebrow">Investimento</div><p><b>Valor do contrato:</b> ${moneyBR(contract.value)}<br/><b>Valor recorrente:</b> ${moneyBR(contract.monthlyValue || contract.value)}<br/><b>Forma de pagamento:</b> ${safe(contract.paymentMethod)}<br/><b>Vencimento:</b> todo dia ${safe(contract.dueDay)}</p></div><div class="card"><div class="eyebrow">Vigência</div><p><b>${safe(contract.validity)}</b><br/>Status atual: ${safe(contract.status)}<br/>Assinatura: ${contract.signedAt?dateBR(contract.signedAt):"Aguardando assinatura"}</p></div></div><h2>Serviços contratados</h2><table><thead><tr><th>#</th><th>Serviço</th><th>Escopo</th><th>Qtd.</th><th>Valor unit.</th></tr></thead><tbody>${items || `<tr><td colspan="5">${safe(contract.services||"Serviços conforme proposta aprovada.")}</td></tr>`}</tbody></table><h2>Cláusulas principais</h2><ol><li>A CONTRATADA prestará os serviços descritos neste contrato e na proposta aprovada, respeitando escopo, prazos e condições comerciais registradas no sistema.</li><li>A CONTRATANTE compromete-se a fornecer informações, materiais, aprovações e acessos necessários para execução dos serviços.</li><li>Os pagamentos deverão ocorrer conforme valor, forma de pagamento, recorrência e vencimento indicados neste contrato.</li><li>Alterações de escopo, peças extras ou demandas fora do pacote contratado poderão gerar orçamento complementar.</li><li>O contrato poderá ser encerrado ou cancelado conforme acordo entre as partes, preservando o histórico financeiro e jurídico já registrado.</li><li>A assinatura digital pelo Gov.br será aceita como validação do documento, sem necessidade de integração direta com o sistema.</li></ol><div class="sign"><div class="line">${safe(CORAL_COMPANY_DATA.razaoSocial)}<br/>Contratada</div><div class="line">${safe(contract.clientName)}<br/>Contratante</div></div></div><div class="footer"><span>${safe(APP_NAME)}</span><span>${safe(contract.number)}</span></div></section></body></html>`;
+  const w = window.open("","_blank");
+  if(!w) return alert("Permita pop-ups para gerar o PDF.");
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+}
+
+function openReceiptPdf(payment){
+  if(!payment) return alert("Cobrança não encontrada.");
+  const html = `<!doctype html><html><head><meta charset="utf-8"/><title>Recibo ${esc(payment.clientName)}</title><style>@page{size:A4;margin:18mm}body{font-family:Inter,Arial,sans-serif;background:#fff;color:#111}.box{border:1px solid #ddd;border-radius:18px;padding:24px}.muted{color:#666;font-size:12px}.total{font-size:30px;font-weight:900;color:#f97316}.row{display:flex;justify-content:space-between;border-bottom:1px solid #eee;padding:10px 0}@media print{button{display:none}}</style></head><body><button onclick="window.print()">Salvar PDF</button><div class="box"><h1>Recibo de Pagamento</h1><p class="muted">${esc(APP_NAME)} · ${new Date().toLocaleDateString("pt-BR")}</p><div class="total">${moneyBR(payment.value)}</div><div class="row"><b>Cliente</b><span>${esc(payment.clientName)}</span></div><div class="row"><b>Vencimento</b><span>${dateBR(payment.dueDate)}</span></div><div class="row"><b>Status</b><span>${esc(payment.status)}</span></div><div class="row"><b>Pago em</b><span>${payment.paidAt?dateBR(payment.paidAt):"Aguardando baixa"}</span></div><p class="muted">Recibo gerado automaticamente pelo módulo financeiro da Coral Films.</p></div></body></html>`;
+  const w = window.open("","_blank");
+  if(!w) return alert("Permita pop-ups para gerar o recibo.");
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
 }
 
 function openCommercialProposalPdf(proposal,items=[],lead=null){
@@ -1465,6 +1962,7 @@ function SideBanners({src}){
 function Header({screen,onBack,onNew,onCommercial,onNavigate}){
   const [drawerOpen,setDrawerOpen] = useState(false);
   const isCommercial = String(screen||"").startsWith("commercial");
+  const isLegalFinance = ["legal-dashboard","legal-contracts","legal-juridico","legal-plans","legal-payments","legal-finance","legal-notifications"].includes(screen);
 
   const closeAndRun = (fn)=>{
     setDrawerOpen(false);
@@ -1476,12 +1974,22 @@ function Header({screen,onBack,onNew,onCommercial,onNavigate}){
       {screen!=="list"&&<button className="btn-glass" onClick={()=>closeAndRun(onBack)}>← Dashboard</button>}
       {isCommercial&&(
         <>
-          <button className="btn-glass" onClick={()=>closeAndRun(()=>onNavigate("commercial-leads"))}>Leads</button>
+          <button className="btn-glass" onClick={()=>closeAndRun(()=>onNavigate("commercial-leads"))}>Clientes</button>
           <button className="btn-glass" onClick={()=>closeAndRun(()=>onNavigate("commercial-proposals"))}>Propostas</button>
           <button className="btn-glass" onClick={()=>closeAndRun(()=>onNavigate("commercial-services"))}>Serviços</button>
+          <button className="btn-glass" onClick={()=>closeAndRun(()=>onNavigate("legal-dashboard"))}>Financeiro</button>
         </>
       )}
-      {screen==="list"&&<button className="btn-glass" onClick={()=>closeAndRun(onCommercial)}>Comercial</button>}
+      {isLegalFinance&&(
+        <>
+          <button className="btn-glass" onClick={()=>closeAndRun(()=>onNavigate("legal-contracts"))}>Contratos</button>
+          <button className="btn-glass" onClick={()=>closeAndRun(()=>onNavigate("legal-plans"))}>Planos</button>
+          <button className="btn-glass" onClick={()=>closeAndRun(()=>onNavigate("legal-payments"))}>Cobranças</button>
+          <button className="btn-glass" onClick={()=>closeAndRun(()=>onNavigate("legal-notifications"))}>Notificações</button>
+        </>
+      )}
+      {screen==="list"&&<button className="btn-glass" onClick={()=>closeAndRun(()=>onNavigate("commercial"))}>Comercial</button>}
+      {screen==="list"&&<button className="btn-glass" onClick={()=>closeAndRun(()=>onNavigate("legal-dashboard"))}>Jurídico/Financeiro</button>}
       {screen==="list"&&<button className="btn-new-client" onClick={()=>closeAndRun(onNew)}>+ Novo Cliente</button>}
     </>
   );
@@ -1491,12 +1999,22 @@ function Header({screen,onBack,onNew,onCommercial,onNavigate}){
       {screen!=="list"&&<button className="btn-glass w-full" onClick={()=>closeAndRun(onBack)}>← Dashboard</button>}
       {isCommercial&&(
         <>
-          <button className="btn-glass w-full" onClick={()=>closeAndRun(()=>onNavigate("commercial-leads"))}>Leads</button>
+          <button className="btn-glass w-full" onClick={()=>closeAndRun(()=>onNavigate("commercial-leads"))}>Clientes</button>
           <button className="btn-glass w-full" onClick={()=>closeAndRun(()=>onNavigate("commercial-proposals"))}>Propostas</button>
           <button className="btn-glass w-full" onClick={()=>closeAndRun(()=>onNavigate("commercial-services"))}>Serviços</button>
+          <button className="btn-glass w-full" onClick={()=>closeAndRun(()=>onNavigate("legal-dashboard"))}>Financeiro</button>
         </>
       )}
-      {screen==="list"&&<button className="btn-glass w-full" onClick={()=>closeAndRun(onCommercial)}>Comercial</button>}
+      {isLegalFinance&&(
+        <>
+          <button className="btn-glass w-full" onClick={()=>closeAndRun(()=>onNavigate("legal-contracts"))}>Contratos</button>
+          <button className="btn-glass w-full" onClick={()=>closeAndRun(()=>onNavigate("legal-plans"))}>Planos</button>
+          <button className="btn-glass w-full" onClick={()=>closeAndRun(()=>onNavigate("legal-payments"))}>Cobranças</button>
+          <button className="btn-glass w-full" onClick={()=>closeAndRun(()=>onNavigate("legal-notifications"))}>Notificações</button>
+        </>
+      )}
+      {screen==="list"&&<button className="btn-glass w-full" onClick={()=>closeAndRun(()=>onNavigate("commercial"))}>Comercial</button>}
+      {screen==="list"&&<button className="btn-glass w-full" onClick={()=>closeAndRun(()=>onNavigate("legal-dashboard"))}>Jurídico/Financeiro</button>}
       {screen==="list"&&<button className="btn-new-client w-full" onClick={()=>closeAndRun(onNew)}>+ Novo Cliente</button>}
     </>
   );
@@ -1542,7 +2060,7 @@ function Header({screen,onBack,onNew,onCommercial,onNavigate}){
 }
 
 // ─── ClientCard ────────────────────────────────────────────────────────────────
-function ClientCard({plano,index,onGenerate,onOpen,onEdit,onDelete}){
+function ClientCard({plano,index,onGenerate,onOpen,onEdit,onDelete,onFinance}){
   const month = MONTHS[(plano.month||1)-1]?.slice(0,3) || "Mês";
   const hasPlan = plano.lastPlan || ((plano.plans||[]).length>0);
   const linksCount = (plano.links||[]).filter(l=>l.url).length;
@@ -1576,6 +2094,7 @@ function ClientCard({plano,index,onGenerate,onOpen,onEdit,onDelete}){
       <div className="client-actions">
         <button className="btn-generate" onClick={()=>onGenerate(plano)}>⚡ Gerar Plano</button>
         {hasPlan&&<button className="btn-icon" title="Abrir plano salvo" onClick={()=>onOpen(plano)}>📄</button>}
+        <button className="btn-icon" title="Financeiro do cliente" onClick={()=>onFinance(plano)}>💰</button>
         <button className="btn-icon btn-edit" title="Editar cliente" onClick={()=>onEdit(plano)}>✏️</button>
         <button className="btn-danger-modern" title="Excluir cliente" onClick={() => onDelete(plano.id)}>🗑</button>
       </div>
@@ -1836,7 +2355,8 @@ function CommercialHome({leads,services,proposals,onNavigate}){
   const menu = [
     {id:"commercial-leads",icon:"🎯",title:"Leads",desc:"Cadastre, filtre e acompanhe oportunidades comerciais.",kpi:`${openLeads} em aberto`},
     {id:"commercial-proposals",icon:"📄",title:"Propostas",desc:"Monte propostas com serviços, descontos e PDF premium.",kpi:moneyBR(totalProposalValue)},
-    {id:"commercial-services",icon:"🧩",title:"Catálogo de Serviços",desc:"Gerencie serviços, valores padrão e descrições automáticas.",kpi:`${activeServices} ativos`}
+    {id:"commercial-services",icon:"🧩",title:"Catálogo de Serviços",desc:"Gerencie serviços, valores padrão e descrições automáticas.",kpi:`${activeServices} ativos`},
+    {id:"legal-dashboard",icon:"⚖️",title:"Jurídico e Financeiro",desc:"Contratos inteligentes, planos recorrentes, cobranças e notificações.",kpi:"CRM completo"}
   ];
 
   return(
@@ -1866,7 +2386,8 @@ function CommercialTopMenu({current,onNavigate}){
     ["commercial","🏠 Comercial"],
     ["commercial-leads","🎯 Leads"],
     ["commercial-proposals","📄 Propostas"],
-    ["commercial-services","🧩 Serviços"]
+    ["commercial-services","🧩 Serviços"],
+    ["legal-dashboard","⚖️ Jurídico/Financeiro"]
   ];
   return(
     <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:18}}>
@@ -2067,7 +2588,7 @@ function ServicesCatalogView({services,form,setForm,editingService,onSave,onEdit
   );
 }
 
-function ProposalsView({proposals,items,leads,onNew,onEdit,onPdf,onConvert,onDelete,onNavigate}){
+function ProposalsView({proposals,items,leads,onNew,onEdit,onPdf,onConvert,onGenerateContract,onDelete,onNavigate}){
   const leadMap = new Map(leads.map(l=>[String(l.id),l]));
   const sorted = [...proposals].sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
 
@@ -2117,6 +2638,7 @@ function ProposalsView({proposals,items,leads,onNew,onEdit,onPdf,onConvert,onDel
                 <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:14}}>
                   <button style={btn("ghost","sm")} onClick={()=>onEdit(proposal)}>Editar</button>
                   <button style={btn("neon","sm")} onClick={()=>onPdf(proposal)}>PDF</button>
+                  {proposal.status==="Aprovada"&&<button style={btn("primary","sm")} onClick={()=>onGenerateContract(proposal)}>📄 Gerar Contrato</button>}
                   <button style={btn("primary","sm")} onClick={()=>onConvert(proposal)}>Converter em Cliente</button>
                   <button style={btn("danger","sm")} onClick={()=>onDelete(proposal.id)}>Excluir</button>
                 </div>
@@ -2168,6 +2690,11 @@ function ProposalFormView({form,setForm,leads,services,onLeadChange,onToggleServ
               <div><label style={lbl}>Cidade</label><input style={inp} value={form.cidade} onChange={e=>setForm(f=>({...f,cidade:e.target.value}))}/></div>
               <div><label style={lbl}>Instagram</label><input style={inp} value={form.instagram} onChange={e=>setForm(f=>({...f,instagram:e.target.value}))}/></div>
               <div><label style={lbl}>Segmento</label><input style={inp} value={form.segmento} onChange={e=>setForm(f=>({...f,segmento:e.target.value}))}/></div>
+              <div><label style={lbl}>CPF/CNPJ</label><input style={inp} value={form.cpfCnpj||""} onChange={e=>setForm(f=>({...f,cpfCnpj:e.target.value}))} placeholder="Documento do cliente"/></div>
+              <div><label style={lbl}>Endereço</label><input style={inp} value={form.endereco||""} onChange={e=>setForm(f=>({...f,endereco:e.target.value}))} placeholder="Endereço contratual"/></div>
+              <div><label style={lbl}>Vigência</label><input style={inp} value={form.vigencia||""} onChange={e=>setForm(f=>({...f,vigencia:e.target.value}))} placeholder="Ex: 12 meses"/></div>
+              <div><label style={lbl}>Dia do vencimento</label><input style={inp} type="number" min="1" max="28" value={form.diaVencimento||10} onChange={e=>setForm(f=>({...f,diaVencimento:e.target.value}))}/></div>
+              <div><label style={lbl}>Forma de pagamento</label><input style={inp} value={form.formaPagamento||""} onChange={e=>setForm(f=>({...f,formaPagamento:e.target.value}))} placeholder="PIX, boleto, cartão..."/></div>
             </div>
             <div style={{marginTop:12}}>
               <label style={lbl}>Objetivos</label>
@@ -2241,6 +2768,7 @@ function ProposalFormView({form,setForm,leads,services,onLeadChange,onToggleServ
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               <div><label style={lbl}>Condições de pagamento</label><textarea style={{...inp,height:110,resize:"vertical"}} value={form.condicoesPagamento} onChange={e=>setForm(f=>({...f,condicoesPagamento:e.target.value}))}/></div>
               <div><label style={lbl}>Próximos passos</label><textarea style={{...inp,height:110,resize:"vertical"}} value={form.proximosPassos} onChange={e=>setForm(f=>({...f,proximosPassos:e.target.value}))}/></div>
+              <div style={{gridColumn:"1/-1"}}><label style={lbl}>Observações comerciais para contrato</label><textarea style={{...inp,height:86,resize:"vertical"}} value={form.observacoesComerciais||""} onChange={e=>setForm(f=>({...f,observacoesComerciais:e.target.value}))} placeholder="Condições específicas, observações jurídicas e ajustes combinados..."/></div>
             </div>
           </div>
         </div>
@@ -2284,6 +2812,115 @@ function ProposalFormView({form,setForm,leads,services,onLeadChange,onToggleServ
   );
 }
 
+
+function LegalFinanceTopMenu({current,onNavigate}){
+  const items = [
+    ["legal-dashboard","📊 Dashboard"],
+    ["commercial-leads","👥 Clientes"],
+    ["commercial-proposals","📄 Propostas"],
+    ["legal-contracts","🤖 Contratos Inteligentes"],
+    ["legal-juridico","⚖️ Jurídico"],
+    ["legal-plans","🔁 Planos Mensais"],
+    ["legal-payments","💳 Cobranças"],
+    ["legal-finance","💰 Financeiro"],
+    ["legal-notifications","🔔 Notificações"]
+  ];
+  return <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:18}}>{items.map(([id,label])=><button key={id} onClick={()=>onNavigate(id)} style={{...btn(current===id?"primary":"ghost","sm"),borderRadius:999,padding:"8px 12px"}}>{label}</button>)}</div>;
+}
+
+function FinanceDashboardView({contracts,plans,payments,notifications,onNavigate}){
+  const snap = financeSnapshot(contracts,plans,payments);
+  const kpis = [
+    ["Receita Recorrente",moneyBR(snap.recurringRevenue),"🔁",C.neon],
+    ["Total a Receber",moneyBR(snap.totalReceivable),"💰",C.orange],
+    ["Recebido no Mês",moneyBR(snap.receivedMonth),"✅",C.success],
+    ["Clientes Ativos",snap.activeClients,"👥",C.white],
+    ["Contratos Ativos",snap.activeContracts,"⚖️",C.success],
+    ["Aguardando Assinatura",snap.waitingContracts,"✍️",C.gold],
+    ["Cobranças de Hoje",snap.chargesToday,"📅",C.orange],
+    ["Cobranças da Semana",snap.chargesWeek,"🗓",C.neon],
+    ["Cobranças do Mês",snap.chargesMonth,"📆",C.white],
+    ["Pagamentos Pendentes",snap.pendingPayments,"⏳",C.gold],
+    ["Pagamentos Atrasados",snap.overduePayments,"🚨",C.danger]
+  ];
+  return <div style={{maxWidth:"74rem",margin:"0 auto",padding:"1.5rem 1rem",animation:"fadeIn .35s ease-out"}}>
+    <LegalFinanceTopMenu current="legal-dashboard" onNavigate={onNavigate}/>
+    <div style={{...ocrd,marginBottom:18,background:"linear-gradient(135deg,#110d08,#07101a)"}}>
+      <div style={{fontSize:10,fontWeight:900,letterSpacing:4,color:C.orange,textTransform:"uppercase",marginBottom:6}}>Dashboard</div>
+      <h1 style={{fontSize:30,fontWeight:950,letterSpacing:-1,margin:"0 0 8px"}}>Jurídico e Financeiro <span style={{color:C.neon}}>Coral Films</span></h1>
+      <p style={{fontSize:13,color:C.dim,lineHeight:1.8,margin:0}}>Controle completo do ciclo: proposta aprovada, contrato inteligente, assinatura Gov.br, plano mensal, cobranças recorrentes e notificações.</p>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,13.5rem),1fr))",gap:12}}>{kpis.map(([label,value,icon,color])=><button key={label} onClick={()=>label.includes("Contrato")?onNavigate("legal-contracts"):label.includes("Cobran")||label.includes("Pagamento")?onNavigate("legal-payments"):onNavigate("legal-finance")} style={{...card,textAlign:"left",borderRadius:18,cursor:"pointer",background:"linear-gradient(145deg,rgba(18,26,39,.96),rgba(7,11,18,.96))"}}><div style={{fontSize:25,marginBottom:8}}>{icon}</div><div style={{fontSize:10,color:C.dim,fontWeight:900,letterSpacing:1.6,textTransform:"uppercase"}}>{label}</div><strong style={{display:"block",fontSize:21,color,marginTop:5}}>{value}</strong></button>)}</div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginTop:16}}>
+      <div style={ncrd}><div style={{fontSize:13,fontWeight:900,marginBottom:12}}>Notificações inteligentes</div>{notifications.length===0?<p style={{fontSize:12,color:C.dim}}>Nenhuma ação pendente agora.</p>:notifications.slice(0,6).map(n=><div key={n.id} style={{padding:"10px 0",borderBottom:`1px solid ${C.border}`}}><div style={{fontSize:12,fontWeight:900,color:n.priority==="danger"?C.danger:C.orange}}>{n.title}</div><div style={{fontSize:11,color:C.dim,marginTop:3}}>{n.message}</div></div>)}</div>
+      <div style={ocrd}><div style={{fontSize:13,fontWeight:900,marginBottom:12}}>Fluxo automático</div>{["Proposta aprovada libera Gerar Contrato","Contrato salvo automaticamente no Jurídico","Upload do PDF assinado ativa contrato","Plano mensal cria a primeira cobrança","Recorrência gera novas cobranças"].map(x=><div key={x} style={{display:"flex",gap:8,fontSize:12,color:C.dim,marginBottom:9}}><span style={{color:C.success}}>✔</span>{x}</div>)}</div>
+    </div>
+  </div>;
+}
+
+function ContractChecklist({contract}){
+  const steps = [
+    ["generated","Contrato Gerado"],
+    ["downloaded","PDF Baixado"],
+    ["sent","Enviado ao Cliente"],
+    ["signedReceived","PDF Assinado Recebido"],
+    ["planCreated","Plano Mensal Criado"],
+    ["clientActive","Cliente Ativo"]
+  ];
+  return <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:8,marginTop:12}}>{steps.map(([key,label])=><div key={key} style={{border:`1px solid ${contract.checklist?.[key]?C.success:C.border}`,background:contract.checklist?.[key]?"rgba(34,197,94,.09)":"rgba(255,255,255,.035)",borderRadius:12,padding:"8px 10px",fontSize:11,color:contract.checklist?.[key]?C.success:C.dim,fontWeight:800}}>{contract.checklist?.[key]?"✔":"•"} {label}</div>)}</div>;
+}
+
+function ContractsView({mode="contracts",contracts,plans,payments,onNavigate,onOpenPdf,onDownload,onWhatsapp,onEmail,onUploadSigned,onConfirmSigned,onCreatePlan,onRenew,onCancel,onHistory}){
+  const sorted = [...contracts].sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
+  return <div style={{maxWidth:"74rem",margin:"0 auto",padding:"1.5rem 1rem",animation:"fadeIn .35s ease-out"}}>
+    <LegalFinanceTopMenu current={mode==="juridico"?"legal-juridico":"legal-contracts"} onNavigate={onNavigate}/>
+    <div style={{display:"flex",justifyContent:"space-between",gap:16,alignItems:"flex-start",marginBottom:18,flexWrap:"wrap"}}><div><div style={{fontSize:10,fontWeight:900,letterSpacing:4,color:C.orange,textTransform:"uppercase",marginBottom:6}}>{mode==="juridico"?"Módulo Jurídico":"Contratos Inteligentes"}</div><h1 style={{fontSize:28,fontWeight:950,letterSpacing:-1,margin:0}}>{mode==="juridico"?"Jurídico":"Contratos Inteligentes"}</h1><p style={{fontSize:12,color:C.dim,lineHeight:1.7,margin:"8px 0 0"}}>Contratos gerados a partir de propostas aprovadas, com checklist, PDF original, PDF assinado e histórico.</p></div><Tag label={`${sorted.length} contrato(s)`} color={C.neon}/></div>
+    {sorted.length===0?<div style={{...ocrd,textAlign:"center",padding:52}}><div style={{fontSize:40,marginBottom:12}}>⚖️</div><p style={{color:C.dim,margin:0}}>Nenhum contrato gerado ainda. Aprove uma proposta e clique em “Gerar Contrato”.</p></div>:<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,24rem),1fr))",gap:14}}>{sorted.map(contract=>{
+      const plan = plans.find(p=>String(p.contractId)===String(contract.id));
+      const contractPayments = payments.filter(p=>String(p.contractId)===String(contract.id));
+      return <div key={contract.id} style={{...card,borderRadius:18,background:"linear-gradient(145deg,rgba(18,26,39,.96),rgba(7,11,18,.96))"}}>
+        <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start"}}><div><div style={{fontSize:10,color:C.orange,fontWeight:900,letterSpacing:2,textTransform:"uppercase"}}>{contract.number}</div><h3 style={{fontSize:18,margin:"5px 0",fontWeight:950}}>{contract.clientName}</h3><div style={{fontSize:11,color:C.dim}}>Emissão {dateBR(contract.issueDate)} · {moneyBR(contract.value)}</div></div><Tag label={contract.status} color={contract.status==="Ativo"?C.success:contract.status==="Cancelado"?C.danger:C.orange}/></div>
+        <div style={{fontSize:12,color:C.dim,lineHeight:1.7,marginTop:12}}><div>🧩 {contract.services||"Serviços conforme proposta"}</div><div>⏳ Vigência: {contract.validity}</div><div>💳 {contract.paymentMethod} · vencimento dia {contract.dueDay}</div>{plan&&<div>🔁 Plano: {moneyBR(plan.value)} · {plan.recurrence}</div>}{contractPayments.length>0&&<div>📌 Cobranças geradas: {contractPayments.length}</div>}</div>
+        <ContractChecklist contract={contract}/>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:14}}>
+          <button style={btn("ghost","sm")} onClick={()=>onOpenPdf(contract)}>Visualizar</button>
+          <button style={btn("neon","sm")} onClick={()=>onDownload(contract)}>Baixar PDF</button>
+          <button style={btn("ghost","sm")} onClick={()=>onWhatsapp(contract)}>WhatsApp</button>
+          <button style={btn("ghost","sm")} onClick={()=>onEmail(contract)}>Email</button>
+          <label style={{...btn("primary","sm"),display:"inline-flex",alignItems:"center",gap:6}}>Upload Assinado<input type="file" accept="application/pdf" style={{display:"none"}} onChange={e=>onUploadSigned(contract,e.target.files?.[0])}/></label>
+          <button style={btn("primary","sm")} onClick={()=>onConfirmSigned(contract)}>Confirmar Assinatura</button>
+          <button style={btn("ghost","sm")} onClick={()=>onHistory(contract)}>Histórico</button>
+          <button style={btn("neon","sm")} onClick={()=>onCreatePlan(contract)}>Criar Plano</button>
+          <button style={btn("ghost","sm")} onClick={()=>onRenew(contract)}>Renovar</button>
+          <button style={btn("danger","sm")} onClick={()=>onCancel(contract)}>Cancelar</button>
+        </div>
+      </div>;
+    })}</div>}
+  </div>;
+}
+
+function PlansView({plans,payments,onNavigate,onCancelPlan}){
+  const sorted = [...plans].sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
+  return <div style={{maxWidth:"74rem",margin:"0 auto",padding:"1.5rem 1rem"}}><LegalFinanceTopMenu current="legal-plans" onNavigate={onNavigate}/><div style={{marginBottom:18}}><div style={{fontSize:10,fontWeight:900,letterSpacing:4,color:C.orange,textTransform:"uppercase",marginBottom:6}}>Planos Mensais</div><h1 style={{fontSize:28,fontWeight:950,letterSpacing:-1,margin:0}}>Planos Recorrentes</h1></div>{sorted.length===0?<div style={{...ocrd,textAlign:"center",padding:48}}>Nenhum plano recorrente criado ainda.</div>:<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,20rem),1fr))",gap:14}}>{sorted.map(plan=>{const count=payments.filter(p=>String(p.planId)===String(plan.id)).length;return <div key={plan.id} style={{...card,borderRadius:18}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><h3 style={{margin:0,fontSize:18}}>{plan.clientName}</h3><Tag label={plan.status} color={plan.status==="Ativo"?C.success:C.danger}/></div><div style={{fontSize:24,fontWeight:950,color:C.neon,marginTop:10}}>{moneyBR(plan.value)}</div><div style={{fontSize:12,color:C.dim,lineHeight:1.7,marginTop:8}}>Primeiro vencimento: {dateBR(plan.firstDueDate)}<br/>Dia do vencimento: {plan.dueDay}<br/>Forma: {plan.paymentMethod}<br/>Recorrência: {plan.recurrence}<br/>Cobranças geradas: {count}</div><button style={{...btn("danger","sm"),marginTop:12}} onClick={()=>onCancelPlan(plan)}>Cancelar Plano</button></div>})}</div>}</div>;
+}
+
+function PaymentsView({payments,onNavigate,onMarkPaid,onEditDue,onReceipt,onWhatsapp,onEmail,onCancelPayment}){
+  const sorted = [...payments].sort((a,b)=>String(a.dueDate||"").localeCompare(String(b.dueDate||"")));
+  return <div style={{maxWidth:"74rem",margin:"0 auto",padding:"1.5rem 1rem"}}><LegalFinanceTopMenu current="legal-payments" onNavigate={onNavigate}/><div style={{marginBottom:18}}><div style={{fontSize:10,fontWeight:900,letterSpacing:4,color:C.orange,textTransform:"uppercase",marginBottom:6}}>Cobranças</div><h1 style={{fontSize:28,fontWeight:950,letterSpacing:-1,margin:0}}>Cobranças Recorrentes</h1></div>{sorted.length===0?<div style={{...ocrd,textAlign:"center",padding:48}}>Nenhuma cobrança gerada ainda.</div>:<div style={{...card,overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:"62rem"}}><thead><tr>{["Cliente","Valor","Vencimento","Status","Ações"].map(h=><th key={h} style={{padding:10,fontSize:10,color:C.dim,textTransform:"uppercase",letterSpacing:1.5,textAlign:"left",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead><tbody>{sorted.map(payment=><tr key={payment.id} style={{borderBottom:`1px solid ${C.border}`}}><td style={{padding:10,fontWeight:800}}>{payment.clientName}</td><td style={{padding:10,color:C.neon,fontWeight:900}}>{moneyBR(payment.value)}</td><td style={{padding:10}}>{dateBR(payment.dueDate)}</td><td style={{padding:10}}><Tag label={payment.status} color={payment.status==="Pago"?C.success:payment.status==="Atrasado"?C.danger:C.orange}/></td><td style={{padding:10}}><div style={{display:"flex",gap:6,flexWrap:"wrap"}}><button style={btn("primary","sm")} onClick={()=>onMarkPaid(payment)}>Marcar Pago</button><button style={btn("ghost","sm")} onClick={()=>onEditDue(payment)}>Alterar Vencimento</button><button style={btn("neon","sm")} onClick={()=>onReceipt(payment)}>Recibo</button><button style={btn("ghost","sm")} onClick={()=>onWhatsapp(payment)}>WhatsApp</button><button style={btn("ghost","sm")} onClick={()=>onEmail(payment)}>Email</button><button style={btn("danger","sm")} onClick={()=>onCancelPayment(payment)}>Cancelar</button></div></td></tr>)}</tbody></table></div>}</div>;
+}
+
+function NotificationsView({notifications,onNavigate}){
+  return <div style={{maxWidth:"74rem",margin:"0 auto",padding:"1.5rem 1rem"}}><LegalFinanceTopMenu current="legal-notifications" onNavigate={onNavigate}/><div style={{marginBottom:18}}><div style={{fontSize:10,fontWeight:900,letterSpacing:4,color:C.orange,textTransform:"uppercase",marginBottom:6}}>Centro de Notificações</div><h1 style={{fontSize:28,fontWeight:950,letterSpacing:-1,margin:0}}>Notificações Automáticas</h1></div>{notifications.length===0?<div style={{...ocrd,textAlign:"center",padding:48}}>Nenhuma notificação ativa. As notificações desaparecem quando a ação correspondente é concluída.</div>:<div style={{display:"grid",gap:10}}>{notifications.map(n=><div key={n.id} style={{...card,borderLeft:`4px solid ${n.priority==="danger"?C.danger:n.priority==="high"?C.orange:C.neon}`}}><div style={{display:"flex",justifyContent:"space-between",gap:12}}><div><div style={{fontSize:10,color:C.dim,fontWeight:900,letterSpacing:2,textTransform:"uppercase"}}>{n.type}</div><div style={{fontSize:17,fontWeight:950,marginTop:3}}>{n.title}</div><div style={{fontSize:12,color:C.dim,marginTop:5}}>{n.message}</div></div><Tag label={n.priority==="danger"?"Urgente":"Ativa"} color={n.priority==="danger"?C.danger:C.orange}/></div></div>)}</div>}</div>;
+}
+
+function ClientFinanceView({client,contracts,plans,payments,onNavigate,onOpenPdf}){
+  const name = String(client?.name||"").trim().toLowerCase();
+  const relatedContracts = contracts.filter(c=>String(c.clientName||"").trim().toLowerCase()===name);
+  const relatedPlans = plans.filter(p=>String(p.clientName||"").trim().toLowerCase()===name);
+  const relatedPayments = payments.filter(p=>String(p.clientName||"").trim().toLowerCase()===name);
+  return <div style={{maxWidth:"74rem",margin:"0 auto",padding:"1.5rem 1rem"}}><LegalFinanceTopMenu current="legal-finance" onNavigate={onNavigate}/><div style={{...ocrd,marginBottom:16}}><div style={{fontSize:10,fontWeight:900,letterSpacing:4,color:C.orange,textTransform:"uppercase",marginBottom:6}}>Tela do Cliente · Financeiro</div><h1 style={{fontSize:28,fontWeight:950,margin:"0 0 6px"}}>{client?.name || "Cliente"}</h1><p style={{fontSize:12,color:C.dim,margin:0}}>Contrato, plano mensal, vencimentos, forma de pagamento, status e histórico.</p></div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}><div style={card}><h3>Histórico de contratos</h3>{relatedContracts.length===0?<p style={{color:C.dim,fontSize:12}}>Nenhum contrato vinculado ao nome deste cliente.</p>:relatedContracts.map(c=><div key={c.id} style={{padding:"10px 0",borderBottom:`1px solid ${C.border}`}}><b>{c.number}</b><div style={{fontSize:12,color:C.dim}}>{c.status} · {moneyBR(c.value)} · {c.validity}</div><div style={{display:"flex",gap:8,marginTop:8}}><button style={btn("ghost","sm")} onClick={()=>onOpenPdf(c)}>PDF Original</button>{c.pdfSignedUrl&&<a href={c.pdfSignedUrl} target="_blank" rel="noreferrer" style={{...btn("neon","sm"),textDecoration:"none"}}>PDF Assinado</a>}</div></div>)}</div><div style={card}><h3>Plano mensal</h3>{relatedPlans.length===0?<p style={{color:C.dim,fontSize:12}}>Nenhum plano mensal ativo.</p>:relatedPlans.map(p=><div key={p.id} style={{padding:"10px 0",borderBottom:`1px solid ${C.border}`}}><b>{moneyBR(p.value)}</b><div style={{fontSize:12,color:C.dim}}>Vencimento dia {p.dueDay} · {p.paymentMethod} · {p.recurrence} · {p.status}</div></div>)}</div></div><div style={{...card,marginTop:14,overflowX:"auto"}}><h3>Histórico de pagamentos</h3>{relatedPayments.length===0?<p style={{color:C.dim,fontSize:12}}>Nenhuma cobrança gerada para este cliente.</p>:<table style={{width:"100%",borderCollapse:"collapse",minWidth:540}}><thead><tr>{["Vencimento","Valor","Forma","Status"].map(h=><th key={h} style={{textAlign:"left",fontSize:10,color:C.dim,padding:8,borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead><tbody>{relatedPayments.map(p=><tr key={p.id}><td style={{padding:8}}>{dateBR(p.dueDate)}</td><td style={{padding:8}}>{moneyBR(p.value)}</td><td style={{padding:8}}>{relatedPlans.find(pl=>String(pl.id)===String(p.planId))?.paymentMethod || "-"}</td><td style={{padding:8}}><Tag label={p.status} color={p.status==="Pago"?C.success:p.status==="Atrasado"?C.danger:C.orange}/></td></tr>)}</tbody></table>}</div></div>;
+}
+
 function CoralFilmsApp(){
   const [splash,setSplash]  = useState(true);
   const [screen,setScreen]  = useState("list");
@@ -2309,6 +2946,11 @@ function CoralFilmsApp(){
   const [editingService,setEditingService] = useState(null);
   const [proposalForm,setProposalForm] = useState(emptyProposalForm());
   const [editingProposal,setEditingProposal] = useState(null);
+  const [contracts,setContracts] = useState([]);
+  const [subscriptionPlans,setSubscriptionPlans] = useState([]);
+  const [recurringPayments,setRecurringPayments] = useState([]);
+  const [legalLoading,setLegalLoading] = useState(true);
+  const [financeClient,setFinanceClient] = useState(null);
   const fileRef             = useRef(null);
   const finalFileRef        = useRef(null);
 
@@ -2332,6 +2974,7 @@ function CoralFilmsApp(){
   useEffect(()=>{
     buscarPlanos();
     buscarComercial();
+    buscarLegalFinance();
   },[]);
 
   useEffect(()=>{
@@ -2579,6 +3222,196 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
   const goCommercial = (target="commercial")=>{
     setScreen(target);
   };
+
+
+  async function buscarLegalFinance(){
+    setLegalLoading(true);
+    const data = await dbGetLegalFinance();
+    const payments = ensureRecurringPayments(data.plans || [], data.payments || []);
+    setContracts(data.contracts || []);
+    setSubscriptionPlans(data.plans || []);
+    setRecurringPayments(payments);
+    await dbSetLegalFinance({contracts:data.contracts || [],plans:data.plans || [],payments,notifications:data.notifications || []});
+    setLegalLoading(false);
+  }
+
+  const persistLegalFinance = async(next)=>{
+    const normalized = {
+      contracts:(next.contracts || contracts).map(normalizeContract),
+      plans:(next.plans || subscriptionPlans).map(normalizeSubscriptionPlan),
+      payments:ensureRecurringPayments((next.plans || subscriptionPlans).map(normalizeSubscriptionPlan),(next.payments || recurringPayments).map(normalizeRecurringPayment)),
+      notifications:(next.notifications || []).map(normalizeNotification)
+    };
+    setContracts(normalized.contracts);
+    setSubscriptionPlans(normalized.plans);
+    setRecurringPayments(normalized.payments);
+    await dbSetLegalFinance(normalized);
+    return normalized;
+  };
+
+  const saveContractEverywhere = async(contract,nextContracts=null,nextPlans=null,nextPayments=null)=>{
+    let finalContract = normalizeContract(contract);
+    const cloud = await salvarContractSupabase(finalContract);
+    if(cloud?.ok && cloud.data){
+      const oldId = finalContract.id;
+      finalContract = {...finalContract,...cloud.data,id:String(cloud.id),supabaseId:cloud.id};
+      if(oldId!==finalContract.id){
+        nextPlans = (nextPlans || subscriptionPlans).map(p=>String(p.contractId)===String(oldId)?{...p,contractId:finalContract.id}:p);
+        nextPayments = (nextPayments || recurringPayments).map(p=>String(p.contractId)===String(oldId)?{...p,contractId:finalContract.id}:p);
+      }
+    }
+    const baseContracts = nextContracts || contracts;
+    const exists = baseContracts.some(c=>String(c.id)===String(contract.id) || (contract.supabaseId && String(c.supabaseId)===String(contract.supabaseId)));
+    const updatedContracts = exists ? baseContracts.map(c=>(String(c.id)===String(contract.id) || (contract.supabaseId && String(c.supabaseId)===String(contract.supabaseId)))?finalContract:c) : [finalContract,...baseContracts];
+    await persistLegalFinance({contracts:updatedContracts,plans:nextPlans || subscriptionPlans,payments:nextPayments || recurringPayments});
+    return finalContract;
+  };
+
+  const generateContractFromProposal = async(proposal)=>{
+    if(proposal.status!=="Aprovada") return alert("Apenas propostas aprovadas liberam a geração do contrato inteligente.");
+    const related = proposalItems.filter(item=>String(item.proposalId)===String(proposal.id) || (proposal.supabaseId && String(item.proposalId)===String(proposal.supabaseId)));
+    const existing = contracts.find(c=>String(c.proposalId)===String(proposal.id) || (proposal.supabaseId && String(c.proposalId)===String(proposal.supabaseId)));
+    if(existing && !confirm("Já existe contrato para esta proposta. Deseja gerar outro contrato/renovação?")) return;
+    const contract = createContractFromProposal(proposal, related, contracts);
+    await saveContractEverywhere(contract);
+    showFeedback("Contrato inteligente gerado e salvo no Jurídico.","success");
+    setScreen("legal-contracts");
+  };
+
+  const updateContractLocal = async(contract,patch)=>{
+    const updated = normalizeContract({
+      ...contract,
+      ...patch,
+      checklist:{...(contract.checklist||{}),...(patch.checklist||{})},
+      history:[...(contract.history||[]),...(patch.historyAdd?[{at:new Date().toISOString(),label:patch.historyAdd}]:[])],
+      updatedAt:new Date().toISOString()
+    });
+    delete updated.historyAdd;
+    return saveContractEverywhere(updated);
+  };
+
+  const openContract = (contract)=>openSmartContractPdf(contract);
+  const downloadContract = async(contract)=>{
+    openSmartContractPdf(contract);
+    await updateContractLocal(contract,{pdfOriginalUrl:contract.pdfOriginalUrl || `browser-print://${contract.number}`,checklist:{downloaded:true},historyAdd:"PDF original aberto para baixar/imprimir."});
+  };
+  const sendContractWhatsapp = async(contract)=>{
+    const phone = String(contract.clientWhatsapp||"").replace(/\D/g,"");
+    const msg = encodeURIComponent(`Olá! Segue o contrato ${contract.number} da Coral Films para assinatura pelo Gov.br. Após assinar, por favor devolva o PDF assinado.`);
+    if(phone) window.open(`https://wa.me/${phone.startsWith("55")?phone:"55"+phone}?text=${msg}`,"_blank");
+    else alert("Este contrato não possui WhatsApp cadastrado. Copie o PDF e envie manualmente.");
+    await updateContractLocal(contract,{status:"Aguardando Assinatura",checklist:{sent:true},historyAdd:"Contrato enviado ao cliente por WhatsApp."});
+  };
+  const sendContractEmail = async(contract)=>{
+    const subject = encodeURIComponent(`Contrato ${contract.number} - Coral Films`);
+    const body = encodeURIComponent(`Olá! Segue o contrato ${contract.number} para assinatura pelo Gov.br. Após assinar, por favor responda este email com o PDF assinado.`);
+    window.location.href = `mailto:${contract.clientEmail||""}?subject=${subject}&body=${body}`;
+    await updateContractLocal(contract,{status:"Aguardando Assinatura",checklist:{sent:true},historyAdd:"Contrato enviado ao cliente por email."});
+  };
+
+  const uploadFileToSupabaseStorage = async(file,path)=>{
+    if(!file || !isSupabaseReady() || !supabase.storage) return "";
+    try{
+      const {error} = await supabase.storage.from("coral-contracts").upload(path,file,{cacheControl:"3600",upsert:true,contentType:file.type || "application/pdf"});
+      if(error) throw error;
+      const {data} = supabase.storage.from("coral-contracts").getPublicUrl(path);
+      return data?.publicUrl || "";
+    }catch(error){
+      console.warn("Arquivo salvo apenas localmente. Verifique o bucket coral-contracts:", error);
+      return "";
+    }
+  };
+
+  const uploadSignedContract = async(contract,file)=>{
+    if(!file) return;
+    const localData = await readFileAsDataURL(file);
+    const storagePath = `signed/${contract.number || contract.id}/${Date.now()}-${file.name}`.replace(/\s+/g,"-");
+    const cloudUrl = await uploadFileToSupabaseStorage(file,storagePath);
+    let updated = await updateContractLocal(contract,{status:"Assinado",signedAt:new Date().toISOString(),locked:true,pdfSignedUrl:cloudUrl || localData,signedPdfName:file.name,checklist:{signedReceived:true},historyAdd:"PDF assinado recebido por upload."});
+    if(confirm("PDF assinado recebido. Deseja criar um Plano Recorrente agora?")){
+      await createRecurringPlanForContract(updated);
+    }
+  };
+
+  const confirmContractSigned = async(contract)=>{
+    let updated = await updateContractLocal(contract,{status:"Assinado",signedAt:contract.signedAt || new Date().toISOString(),locked:true,checklist:{signedReceived:true},historyAdd:"Assinatura confirmada manualmente."});
+    if(!subscriptionPlans.some(p=>String(p.contractId)===String(contract.id)) && confirm("Deseja criar um Plano Recorrente para este contrato?")){
+      await createRecurringPlanForContract(updated);
+    }
+  };
+
+  const createRecurringPlanForContract = async(contract)=>{
+    const defaultValue = toNumber(contract.monthlyValue || contract.value);
+    const value = toNumber(prompt("Valor do plano recorrente", String(defaultValue || "")) || defaultValue);
+    const firstDueDate = prompt("Primeiro vencimento (AAAA-MM-DD)", nextDateWithDay(contract.dueDay || 10)) || nextDateWithDay(contract.dueDay || 10);
+    const dueDay = Number(prompt("Dia fixo do vencimento", String(contract.dueDay || 10)) || contract.dueDay || 10);
+    const paymentMethod = prompt("Forma de pagamento", contract.paymentMethod || "PIX") || contract.paymentMethod || "PIX";
+    const recurrence = prompt("Recorrência: Mensal, Trimestral, Semestral ou Anual", contract.recurrence || "Mensal") || "Mensal";
+    let plan = createPlanFromContract(contract,{value,firstDueDate,dueDay,paymentMethod,recurrence:RECURRENCE_OPTIONS.includes(recurrence)?recurrence:"Mensal"});
+    const cloud = await salvarSubscriptionSupabase(plan);
+    if(cloud?.ok && cloud.data) plan = {...plan,...cloud.data,id:String(cloud.id),supabaseId:cloud.id,contractId:contract.id};
+    const basePlans = subscriptionPlans.some(p=>String(p.contractId)===String(contract.id)) ? subscriptionPlans.map(p=>String(p.contractId)===String(contract.id)?plan:p) : [plan,...subscriptionPlans];
+    const newPayments = ensureRecurringPayments(basePlans,recurringPayments);
+    for(const payment of newPayments.filter(p=>!recurringPayments.some(old=>String(old.id)===String(p.id)))) await salvarPaymentSupabase(payment);
+    const updatedContract = normalizeContract({...contract,status:"Ativo",checklist:{...(contract.checklist||{}),planCreated:true,clientActive:true},history:[...(contract.history||[]),{at:new Date().toISOString(),label:"Plano mensal criado e recorrência financeira ativada."}],updatedAt:new Date().toISOString()});
+    await saveContractEverywhere(updatedContract,contracts.map(c=>String(c.id)===String(contract.id)?updatedContract:c),basePlans,newPayments);
+    showFeedback("Plano recorrente criado e cobranças geradas.","success");
+    return plan;
+  };
+
+  const renewContract = async(contract)=>{
+    const renewed = normalizeContract({...contract,id:newLocalId(),supabaseId:null,number:contractNumber(contracts),status:"Gerado",issueDate:todayIso(),signedAt:null,locked:false,pdfSignedUrl:"",signedPdfName:"",checklist:{generated:true,downloaded:false,sent:false,signedReceived:false,planCreated:false,clientActive:false},history:[{at:new Date().toISOString(),label:`Contrato renovado a partir do ${contract.number}.`}]});
+    await saveContractEverywhere(renewed);
+    showFeedback("Contrato renovado gerado.","success");
+  };
+
+  const cancelContract = async(contract)=>{
+    if(!confirm("Cancelar este contrato e parar novas cobranças? O histórico será preservado.")) return;
+    const updatedContract = normalizeContract({...contract,status:"Cancelado",history:[...(contract.history||[]),{at:new Date().toISOString(),label:"Contrato cancelado. Geração de novas cobranças interrompida."}],updatedAt:new Date().toISOString()});
+    const nextPlans = subscriptionPlans.map(p=>String(p.contractId)===String(contract.id)?{...p,status:"Cancelado",updatedAt:new Date().toISOString()}:p);
+    await saveContractEverywhere(updatedContract,contracts.map(c=>String(c.id)===String(contract.id)?updatedContract:c),nextPlans,recurringPayments);
+    showFeedback("Contrato cancelado e recorrência interrompida.","success");
+  };
+
+  const showContractHistory = (contract)=>{
+    alert((contract.history||[]).map(h=>`${dateBR(h.at)} - ${h.label}`).join("\n") || "Sem histórico registrado.");
+  };
+
+  const cancelPlan = async(plan)=>{
+    if(!confirm("Cancelar este plano recorrente? O histórico de cobranças será preservado.")) return;
+    const updatedPlans = subscriptionPlans.map(p=>String(p.id)===String(plan.id)?{...p,status:"Cancelado",updatedAt:new Date().toISOString()}:p);
+    await persistLegalFinance({contracts,plans:updatedPlans,payments:recurringPayments});
+    showFeedback("Plano cancelado.","success");
+  };
+
+  const markPaymentPaid = async(payment)=>{
+    const updated = normalizeRecurringPayment({...payment,status:"Pago",paidAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
+    await salvarPaymentSupabase(updated);
+    await persistLegalFinance({contracts,plans:subscriptionPlans,payments:recurringPayments.map(p=>String(p.id)===String(payment.id)?updated:p)});
+    showFeedback("Pagamento confirmado.","success");
+  };
+  const editPaymentDue = async(payment)=>{
+    const dueDate = prompt("Novo vencimento (AAAA-MM-DD)", payment.dueDate);
+    if(!dueDate) return;
+    const updated = normalizeRecurringPayment({...payment,dueDate,status:"Em Aberto",updatedAt:new Date().toISOString()});
+    await salvarPaymentSupabase(updated);
+    await persistLegalFinance({contracts,plans:subscriptionPlans,payments:recurringPayments.map(p=>String(p.id)===String(payment.id)?updated:p)});
+  };
+  const cancelPayment = async(payment)=>{
+    const updated = normalizeRecurringPayment({...payment,status:"Cancelado",updatedAt:new Date().toISOString()});
+    await salvarPaymentSupabase(updated);
+    await persistLegalFinance({contracts,plans:subscriptionPlans,payments:recurringPayments.map(p=>String(p.id)===String(payment.id)?updated:p)});
+  };
+  const sendPaymentWhatsapp = (payment)=>{
+    const msg = encodeURIComponent(`Olá! Lembrete de cobrança Coral Films: ${moneyBR(payment.value)} com vencimento em ${dateBR(payment.dueDate)}.`);
+    window.open(`https://wa.me/?text=${msg}`,"_blank");
+  };
+  const sendPaymentEmail = (payment)=>{
+    const subject = encodeURIComponent(`Cobrança Coral Films - ${dateBR(payment.dueDate)}`);
+    const body = encodeURIComponent(`Olá! Segue lembrete da cobrança no valor de ${moneyBR(payment.value)}, vencimento em ${dateBR(payment.dueDate)}.`);
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  };
+
 
   const startNewLead = ()=>{
     setLeadForm(emptyLeadForm());
@@ -2894,6 +3727,9 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
   };
 
 
+  const openClientFinance = (client)=>{setFinanceClient(client);setScreen("client-finance");};
+  const autoNotifications = buildAutoNotifications(contracts,recurringPayments);
+
   const wrap={width:"100%",maxWidth:"72rem",margin:"0 auto",padding:"1.5rem 1rem"};
 
   return(
@@ -3106,6 +3942,7 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
                   onOpen={openSavedPlan}
                   onEdit={startEdit}
                   onDelete={deletarPlano}
+                  onFinance={openClientFinance}
                 />
               ))}
             </div>
@@ -3172,6 +4009,7 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
           onEdit={editProposal}
           onPdf={proposalPdf}
           onConvert={convertProposalToClient}
+          onGenerateContract={generateContractFromProposal}
           onDelete={deleteProposal}
           onNavigate={goCommercial}
         />
@@ -3193,6 +4031,34 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
           onNavigate={goCommercial}
           editingProposal={editingProposal}
         />
+      )}
+
+
+      {/* ── JURÍDICO / FINANCEIRO ── */}
+      {screen==="legal-dashboard"&&(
+        legalLoading ? <div style={wrap}><div style={{...ncrd,textAlign:"center",padding:46}}>Carregando Jurídico/Financeiro...</div></div> :
+        <FinanceDashboardView contracts={contracts} plans={subscriptionPlans} payments={recurringPayments} notifications={autoNotifications} onNavigate={goCommercial}/>
+      )}
+      {screen==="legal-contracts"&&(
+        <ContractsView mode="contracts" contracts={contracts} plans={subscriptionPlans} payments={recurringPayments} onNavigate={goCommercial} onOpenPdf={openContract} onDownload={downloadContract} onWhatsapp={sendContractWhatsapp} onEmail={sendContractEmail} onUploadSigned={uploadSignedContract} onConfirmSigned={confirmContractSigned} onCreatePlan={createRecurringPlanForContract} onRenew={renewContract} onCancel={cancelContract} onHistory={showContractHistory}/>
+      )}
+      {screen==="legal-juridico"&&(
+        <ContractsView mode="juridico" contracts={contracts} plans={subscriptionPlans} payments={recurringPayments} onNavigate={goCommercial} onOpenPdf={openContract} onDownload={downloadContract} onWhatsapp={sendContractWhatsapp} onEmail={sendContractEmail} onUploadSigned={uploadSignedContract} onConfirmSigned={confirmContractSigned} onCreatePlan={createRecurringPlanForContract} onRenew={renewContract} onCancel={cancelContract} onHistory={showContractHistory}/>
+      )}
+      {screen==="legal-plans"&&(
+        <PlansView plans={subscriptionPlans} payments={recurringPayments} onNavigate={goCommercial} onCancelPlan={cancelPlan}/>
+      )}
+      {screen==="legal-payments"&&(
+        <PaymentsView payments={recurringPayments} onNavigate={goCommercial} onMarkPaid={markPaymentPaid} onEditDue={editPaymentDue} onReceipt={openReceiptPdf} onWhatsapp={sendPaymentWhatsapp} onEmail={sendPaymentEmail} onCancelPayment={cancelPayment}/>
+      )}
+      {screen==="legal-finance"&&(
+        <FinanceDashboardView contracts={contracts} plans={subscriptionPlans} payments={recurringPayments} notifications={autoNotifications} onNavigate={goCommercial}/>
+      )}
+      {screen==="legal-notifications"&&(
+        <NotificationsView notifications={autoNotifications} onNavigate={goCommercial}/>
+      )}
+      {screen==="client-finance"&&financeClient&&(
+        <ClientFinanceView client={financeClient} contracts={contracts} plans={subscriptionPlans} payments={recurringPayments} onNavigate={goCommercial} onOpenPdf={openContract}/>
       )}
 
       {/* ── FORM ── */}
