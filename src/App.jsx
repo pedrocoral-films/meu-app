@@ -2422,7 +2422,29 @@ function PlanView({client,plan,onRegen,onExportPlan,onExportFinal,onEditClient})
         </div>
       </div>}
 
-      <div style={{display:"flex",gap:6,marginBottom:18,background:"rgba(255,255,255,.78)",padding:6,borderRadius:22,border:`1px solid ${C.border}`,overflowX:"auto",boxShadow:"0 14px 34px rgba(14,165,255,.10)"}}>
+      <div className="studio-navigation-console" style={{marginBottom:18}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:12}}>
+          <div>
+            <div style={{fontSize:10,fontWeight:1000,letterSpacing:3.2,color:C.neon,textTransform:"uppercase",textShadow:"0 0 18px rgba(0,213,255,.42)"}}>Navegação interna do laboratório</div>
+            <div style={{fontSize:12,color:"#6f92a8",marginTop:5}}>Escolha a área de trabalho dos assistentes sem sair do Studio.</div>
+          </div>
+          <div style={{fontSize:10,fontWeight:950,letterSpacing:2,textTransform:"uppercase",color:"#7fefff",padding:"8px 12px",border:"1px solid rgba(0,213,255,.25)",borderRadius:999,background:"rgba(0,213,255,.06)",boxShadow:"0 0 18px rgba(0,213,255,.10)"}}>Setor ativo: {tabs.find(([id])=>id===tab)?.[1]}</div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,10.5rem),1fr))",gap:10}}>
+          {tabs.map(([id,label])=>{
+            const active=tab===id;
+            return <button key={id} type="button" onClick={()=>setTab(id)} className={`studio-nav-button ${active?"active":""}`} style={{minHeight:74,padding:"13px 14px",borderRadius:20,cursor:"pointer",fontFamily:"inherit",textAlign:"left",display:"flex",alignItems:"center",gap:11,background:active?"radial-gradient(circle at 10% 0%,rgba(0,213,255,.42),transparent 38%),linear-gradient(135deg,rgba(0,213,255,.26),rgba(2,8,18,.96))":"linear-gradient(145deg,rgba(3,8,18,.92),rgba(0,0,0,.82))",border:active?"1px solid rgba(0,213,255,.70)":"1px solid rgba(0,213,255,.22)",boxShadow:active?"0 0 34px rgba(0,213,255,.30),inset 0 1px 0 rgba(255,255,255,.13)":"0 16px 34px rgba(0,0,0,.32),0 0 18px rgba(0,213,255,.06)",color:active?"#eaffff":"#8fb5c8",transition:"all .18s ease",position:"relative",overflow:"hidden"}}>
+              <span style={{width:36,height:36,borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,background:active?"linear-gradient(135deg,#0ea5ff,#00d5ff)":"rgba(0,213,255,.08)",border:"1px solid rgba(0,213,255,.22)",boxShadow:active?"0 0 22px rgba(0,213,255,.42)":"none",flexShrink:0}}>{label.split(" ")[0]}</span>
+              <span style={{display:"flex",flexDirection:"column",minWidth:0}}>
+                <b style={{fontSize:11,fontWeight:1000,letterSpacing:.8,textTransform:"uppercase",color:active?"#fff":"#b8d7e5",lineHeight:1.15}}>{label.replace(/^\S+\s*/,"")}</b>
+                <small style={{fontSize:9.5,color:active?"#bdf8ff":"#597789",fontWeight:800,letterSpacing:.4,marginTop:4,lineHeight:1.25}}>{({briefing:"visão geral",assistants:"equipe IA",arts:"artes estáticas",reels:"audiovisual",scripts:"hooks e falas",social:"redes sociais",production:"tarefas",calendar:"agenda",refs:"moodboard",extras:"venda extra",approval:"materiais finais"})[id]}</small>
+              </span>
+            </button>
+          })}
+        </div>
+      </div>
+
+      <div style={{display:"none",gap:6,marginBottom:18,background:"rgba(255,255,255,.78)",padding:6,borderRadius:22,border:`1px solid ${C.border}`,overflowX:"auto",boxShadow:"0 14px 34px rgba(14,165,255,.10)"}}>
         {tabs.map(([id,label])=>(
           <button key={id} onClick={()=>setTab(id)} style={{padding:"10px 14px",border:"none",borderRadius:18,cursor:"pointer",fontWeight:950,fontSize:11,letterSpacing:1,textTransform:"uppercase",fontFamily:"inherit",whiteSpace:"nowrap",background:tab===id?"linear-gradient(135deg,#0ea5ff,#00d5ff)":"transparent",color:tab===id?"#fff":C.dim,boxShadow:tab===id?C.neonG:"none",transition:"all .18s"}}>{label}</button>
         ))}
@@ -4456,6 +4478,14 @@ ${commercialScopeText}`:""}`,
           color:#eafcff!important;
         }
         .app-shell.creative-brain-mode footer{background:transparent!important}
+        .app-shell.creative-brain-mode .studio-navigation-console{position:relative;z-index:2}
+        .app-shell.creative-brain-mode .studio-navigation-console::before{content:"";position:absolute;inset:-10px;border-radius:30px;background:radial-gradient(circle at 12% 0%,rgba(0,213,255,.12),transparent 35%);pointer-events:none;filter:blur(8px);opacity:.75}
+        .app-shell.creative-brain-mode .studio-navigation-console>*{position:relative;z-index:1}
+        .app-shell.creative-brain-mode .studio-nav-button::after{content:"";position:absolute;left:-45%;top:0;width:38%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.13),transparent);transform:skewX(-18deg);transition:left .42s ease;pointer-events:none}
+        .app-shell.creative-brain-mode .studio-nav-button:hover::after,.app-shell.creative-brain-mode .studio-nav-button.active::after{left:110%}
+        .app-shell.creative-brain-mode .studio-nav-button:hover{border-color:rgba(0,213,255,.62)!important;box-shadow:0 0 34px rgba(0,213,255,.24),0 18px 42px rgba(0,0,0,.42)!important;transform:translateY(-2px)!important}
+        .app-shell.creative-brain-mode .studio-nav-button.active{animation:labButtonPulse 2.6s ease-in-out infinite}
+        @keyframes labButtonPulse{0%,100%{filter:drop-shadow(0 0 0 rgba(0,213,255,0))}50%{filter:drop-shadow(0 0 12px rgba(0,213,255,.38))}}
 
         @media(min-width:1200px){
           .app-shell > div:not(.toast):not(.mobile-drawer){max-width:100%!important}
