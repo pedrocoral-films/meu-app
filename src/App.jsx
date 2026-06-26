@@ -244,6 +244,107 @@ function enhanceCreativeStudioPlan(plan={},pkgInput,client={}){
 function enforcePlanAgainstPackage(plan,pkgInput,client={}){return enhanceCreativeStudioPlan(plan,pkgInput,client);}
 
 
+function nicheSeed(raw="negócio local"){
+  const n=String(raw||"negócio local").toLowerCase();
+  if(n.includes("barb")) return {label:"barbearia",audience:"homens que valorizam aparência, praticidade e atendimento de confiança",desire:"agendar corte/barba e sentir mais presença",visual:"visual masculino, urbano, premium, com close em máquina, navalha, espelho, cadeira e resultado final",topics:["transformação de visual","combo corte + barba","cuidados para manter o degradê","agenda da semana","prova social de cliente","bastidores da barbearia"],offers:["combo corte + barba","agendamento pelo WhatsApp","horários da semana"]};
+  if(n.includes("estét")||n.includes("beleza")||n.includes("clin")) return {label:"estética e beleza",audience:"pessoas que buscam autoestima, cuidado e resultado visível",desire:"marcar avaliação, conhecer procedimentos e confiar na especialista",visual:"clean, sofisticado, pele iluminada, elementos suaves, antes/depois com elegância e sensação premium",topics:["benefícios do procedimento","mitos e verdades","antes e depois","cuidados pós-procedimento","rotina de autocuidado","agenda de avaliações"],offers:["avaliação","procedimento em destaque","pacote promocional"]};
+  if(n.includes("rest")||n.includes("lanch")||n.includes("hamb")||n.includes("pizza")) return {label:"alimentação",audience:"pessoas próximas ao negócio buscando sabor, praticidade e experiência",desire:"pedir pelo WhatsApp, visitar o local ou experimentar um prato",visual:"close apetitoso, vapor, textura, mesa bem montada, cores quentes e CTA forte",topics:["prato da semana","bastidor da cozinha","combo/oferta","depoimento de cliente","ingredientes frescos","chamada para delivery"],offers:["combo da semana","pedido via WhatsApp","promoção de horário"]};
+  if(n.includes("imob")) return {label:"imobiliária",audience:"pessoas buscando imóvel, investimento ou aluguel com segurança",desire:"pedir atendimento, conhecer imóveis e confiar na empresa",visual:"imóveis bem iluminados, família, chave, fachada, ambientes amplos, tipografia limpa",topics:["imóvel em destaque","dica para comprar/alugar","bastidores de visita","prova social","documentação sem dor","oportunidade da semana"],offers:["visita agendada","simulação","imóvel disponível"]};
+  if(n.includes("academ")||n.includes("fit")) return {label:"fitness",audience:"pessoas que querem saúde, estética, energia e evolução",desire:"matricular, experimentar aula ou voltar a treinar",visual:"movimento, suor, energia, equipamentos, evolução real, iluminação forte e motivacional",topics:["transformação","aula experimental","erro comum no treino","rotina de alunos","desafio da semana","benefícios do acompanhamento"],offers:["aula experimental","plano mensal","desafio de 7 dias"]};
+  return {label:raw||"negócio local",audience:"público local que precisa confiar na marca antes de comprar",desire:"gerar contato, pedido de orçamento, visita ou agendamento",visual:"visual moderno, claro, comercial, com prova visual do serviço/produto e CTA objetivo",topics:["apresentação da marca","prova social","bastidores","oferta da semana","conteúdo educativo","chamada para WhatsApp"],offers:["orçamento","agendamento","atendimento pelo WhatsApp"]};
+}
+
+function buildSpecificArtIdeas(pkgInput,niche="negócio local",objective=""){
+  const p=normalizeCommercialPlanSnapshot(pkgInput); const total=Math.max(1,p?.monthly?.arts||8); const seed=nicheSeed(niche);
+  const formats=["Post Feed 1080x1350","Carrossel 5 slides","Stories 1080x1920","Post Feed 1080x1080"];
+  return Array.from({length:total},(_,i)=>{
+    const topic=seed.topics[i%seed.topics.length];
+    const offer=seed.offers[i%seed.offers.length];
+    return {
+      title:`ARTE ${String(i+1).padStart(2,"0")} - ${topic.toUpperCase()}`,
+      objective:`Criar uma peça para ${seed.label} com foco em ${i%3===0?"autoridade":i%3===1?"desejo/conexão":"conversão"}. ${objective?`Direcionamento: ${objective}`:""}`,
+      format:formats[i%formats.length],
+      mainText:i%3===0?`Você sabia? ${topic}`:i%3===1?`Seu próximo passo começa aqui`:`${offer}: fale com a gente hoje`,
+      subText:i%3===0?`Uma dica rápida para quem procura ${seed.label} com segurança.`:i%3===1?`Mostre o resultado, o cuidado e a experiência do atendimento.`:`Condição/agenda por tempo limitado. Chame no WhatsApp.`,
+      visualDirection:`${seed.visual}. Usar hierarquia forte: título grande, respiro, detalhe visual do nicho e botão/CTA destacado em azul neon Coral quando combinar com a identidade.`,
+      cta:i%3===2?"Clique no WhatsApp e agende agora":"Salve, compartilhe ou chame no WhatsApp",
+      reference:`Buscar no Pinterest: "${seed.label} social media ${i%2?"premium":"post design"}"; usar como referência de atmosfera, nunca copiar layout.`
+    };
+  });
+}
+
+function buildSpecificReels(pkgInput,niche="negócio local",objective=""){
+  const p=normalizeCommercialPlanSnapshot(pkgInput); const total=Math.max(1,p?.monthly?.reels||4); const seed=nicheSeed(niche);
+  return Array.from({length:total},(_,i)=>{
+    const topic=seed.topics[(i+1)%seed.topics.length];
+    const title=`REELS ${String(i+1).padStart(2,"0")} - ${topic.toUpperCase()}`;
+    return {
+      title,
+      objective:`Vídeo curto para gerar ${i%3===0?"atenção e autoridade":i%3===1?"desejo e prova visual":"conversão e contato"} para ${seed.label}. ${objective?`Foco do projeto: ${objective}`:""}`,
+      structure:[
+        `Cena 1: hook nos 3 primeiros segundos mostrando ${topic} com movimento de câmera ou texto forte na tela.`,
+        `Cena 2: mostrar o problema/desejo do público: ${seed.desire}.`,
+        `Cena 3: apresentar prova visual, bastidor, resultado, produto ou atendimento real.`,
+        `Cena 4: finalizar com CTA direto: ${seed.offers[i%seed.offers.length]} pelo WhatsApp.`
+      ],
+      caption:`${topic} para quem quer ${seed.desire}. Chame no WhatsApp e fale com a equipe.`,
+      cta:`Chame no WhatsApp para ${seed.offers[i%seed.offers.length]}.`,
+      cta_text:"Agendar agora"
+    };
+  });
+}
+
+function buildLocalClientPlan(client={},pkgInput=null){
+  const niche=client.niche||"negócio local"; const seed=nicheSeed(niche); const p=normalizeCommercialPlanSnapshot(pkgInput); const mm=String(client.month||new Date().getMonth()+1).padStart(2,"0");
+  const artIdeas=buildSpecificArtIdeas(p,niche,client.notes||client.extra||"");
+  const reels=buildSpecificReels(p,niche,client.notes||client.extra||"");
+  const scripts=buildScriptsFromReels(reels).map((s,i)=>({...s,narration:`${s.hook} ${seed.audience} procura confiança antes de decidir. Mostre o diferencial do atendimento, a prova visual e finalize convidando para ${seed.offers[i%seed.offers.length]}.`,onScreenText:`${seed.desire} · ${reels[i]?.cta_text||"Saiba mais"}`}));
+  const calendar=buildCalendarSkeletonForPackage(p,mm,niche).map((row,i)=>({
+    ...row,
+    content: row.format==="Reels" ? (reels.filter(Boolean)[i%reels.length]?.title||row.content) : (artIdeas.filter(Boolean)[i%artIdeas.length]?.title||row.content)
+  }));
+  const plan={
+    strategy:{
+      objective:`Posicionar ${client.name||"o cliente"} como referência em ${seed.label}, criando conteúdos que misturam autoridade, prova visual e chamada para ação. O mês deve conduzir o público de curiosidade para confiança e depois para contato pelo WhatsApp/agendamento.`,
+      goal1:`Aumentar reconhecimento usando conteúdos educativos e bastidores reais do nicho ${seed.label}.`,
+      goal2:`Gerar desejo mostrando resultado, cuidado, transformação e experiência de atendimento.`,
+      goal3:`Aumentar pedidos, orçamentos ou agendamentos com chamadas diretas em artes, Reels e Stories.`,
+      pillar1:`Autoridade: explicar, ensinar e mostrar domínio do serviço/produto.`,
+      pillar2:`Conexão: bastidores, rotina, pessoas, prova social e linguagem humana.`,
+      pillar3:`Conversão: ofertas, agenda, WhatsApp, condições e conteúdos com CTA forte.`
+    },
+    calendar,artIdeas,reels,scripts,
+    socialManagement:{positioning:`Transformar ${client.name||"a marca"} em uma opção lembrada e confiável para ${seed.audience}.`,tone:"Humano, direto, comercial, com linguagem simples e premium na apresentação visual.",distribution:`Distribuir ${p?.monthly?.arts||artIdeas.length} artes e ${p?.monthly?.reels||reels.length} Reels no mês, equilibrando autoridade, conexão e conversão.`,kpis:["Alcance qualificado","Cliques ou mensagens no WhatsApp","Salvamentos e compartilhamentos","Pedidos de orçamento/agendamento"]},
+    production:buildProductionBoard({artIdeas,reels},client),
+    outOfScope:["Captação externa avançada, tráfego pago, landing page, automação de WhatsApp e volume extra de peças devem virar proposta complementar.","Qualquer conteúdo acima da quantidade contratada deve ser tratado como oportunidade comercial, não como obrigação."],
+    goals:[{icon:"📈",title:"AUMENTAR ALCANCE",desc:`Alcançar mais pessoas interessadas em ${seed.label} na região do cliente.`},{icon:"👥",title:"CRESCER SEGUIDORES",desc:"Atrair seguidores com maior chance de comprar, agendar ou pedir orçamento."},{icon:"💬",title:"ENGAJAMENTO",desc:"Aumentar respostas, salvamentos, comentários e cliques nos conteúdos."},{icon:"🛒",title:"CONVERSÃO",desc:`Gerar mais contatos para ${seed.offers[0]}.`}]
+  };
+  return enhanceCreativeStudioPlan(plan,p,client);
+}
+
+function parseFormatsCount(text=""){
+  const t=String(text||"").toLowerCase();
+  const find=(words,def)=>{for(const w of words){const m=t.match(new RegExp("(\\d+)\\s*(?:"+w+")","i")); if(m) return Number(m[1]);} return def;};
+  return {reels:find(["reels?","v[ií]deos?","videos?"],4),arts:find(["artes?","posts?","cards?"],6),stories:find(["stories","story"],4)};
+}
+function selectedAssistantObjects(keys=[]){const set=new Set((keys&&keys.length?keys:CREATIVE_ASSISTANTS.map(a=>a.key)));return CREATIVE_ASSISTANTS.filter(a=>set.has(a.key));}
+function buildAuthorialProjectPlan(form={}){
+  const selected=selectedAssistantObjects(form.selectedAssistants);
+  const counts=parseFormatsCount(form.formats||"");
+  const seed=nicheSeed(form.niche||form.type||"projeto autoral");
+  const ctx={name:form.title||"Projeto autoral Coral",niche:form.niche||form.type||"Projeto autoral",notes:form.objective||"",extra:[form.audience,form.positioning,form.offer,form.tone].filter(Boolean).join(" | ")};
+  const fakePkg={key:"autoral",name:"Projeto Autoral Coral",value:0,weekly:{arts:Math.ceil(counts.arts/4),reels:Math.ceil(counts.reels/4),stories:Math.ceil(counts.stories/4)},monthly:counts,includes:{management:"Gestão estratégica interna",planning:"Planejamento autoral livre",report:"Acompanhamento interno"},deliverables:[]};
+  const artIdeas= selected.some(a=>a.key==="art") ? buildSpecificArtIdeas(fakePkg,ctx.niche,form.objective).slice(0,counts.arts) : [];
+  const reels= selected.some(a=>a.key==="video") ? buildSpecificReels(fakePkg,ctx.niche,form.objective).slice(0,counts.reels) : [];
+  const scripts= selected.some(a=>a.key==="script") ? buildScriptsFromReels(reels.length?reels:buildSpecificReels(fakePkg,ctx.niche,form.objective).slice(0,Math.min(4,counts.reels))).map((s,i)=>({...s,narration:`${s.hook} Desenvolva a ideia autoral da Coral com tom ${form.tone||"premium, direto e criativo"}. Mostre valor, bastidor, prova ou conceito, e finalize com CTA do projeto.`})) : [];
+  const social= selected.some(a=>a.key==="social") ? {positioning:form.positioning||`Posicionar o projeto "${ctx.name}" como iniciativa autoral forte da Coral.`,tone:form.tone||"Premium, estratégico, tecnológico e humano.",distribution:`Canais: ${form.channels||"Instagram, Reels, Stories e portfólio"}. Distribuir conteúdos por pilar: autoridade, bastidor, prova e conversão.`,kpis:["Alcance do projeto","Interações qualificadas","Leads ou conversas geradas","Peças publicadas no prazo"]} : null;
+  const production= selected.some(a=>a.key==="producer") ? buildProductionBoard({artIdeas,reels},ctx).concat([{task:"Revisão estratégica do projeto autoral",area:"Gerente de Produção",owner:"Coordenação Coral",due:form.deadline||"Definir prazo",status:"Ideia"}]) : [];
+  const strategy= selected.some(a=>a.key==="director") ? {objective:`Criar e organizar o projeto autoral "${ctx.name}" com objetivo de ${form.objective||"fortalecer marca, portfólio e geração de oportunidades"}. O projeto deve ter clareza de público, formato, narrativa e execução.`,goal1:`Construir conceito forte para o público: ${form.audience||seed.audience}.`,goal2:`Criar valor percebido com estética, roteiro, prova e consistência.`,goal3:`Transformar o projeto em ativo comercial da Coral: portfólio, conteúdo, campanha ou produto.`,pillar1:"Autoridade: mostrar visão, método e diferencial criativo da Coral.",pillar2:"Conexão: bastidores, histórias, pessoas e linguagem humana.",pillar3:"Conversão: CTA para contato, portfólio, proposta ou captação."} : null;
+  const calendar=buildCalendarSkeletonForPackage(fakePkg,String(new Date().getMonth()+1).padStart(2,"0"),ctx.niche).slice(0,Math.max(counts.arts,counts.reels)).map((r,i)=>({...r,content:(i%2&&reels.length)?reels[i%reels.length].title:(artIdeas[i%Math.max(1,artIdeas.length)]?.title||`Entrega autoral ${i+1}`)}));
+  return {createdAt:new Date().toISOString(),selectedAssistants:selected.map(a=>a.key),assistants:selected.map(a=>({key:a.key,name:a.name,role:a.role,desc:a.desc})),strategy:strategy||{},artIdeas,reels,scripts,socialManagement:social||{},production,calendar,references:[form.references||"Adicionar referências do Pinterest, Instagram, Behance ou Drive para guiar estética.","Usar referências como inspiração de linguagem e atmosfera, sem copiar layout."],nextSteps:["Validar conceito central","Separar referências visuais","Criar roteiro/peças iniciais","Organizar produção e prazos","Revisar e publicar/usar comercialmente"],outOfScope:["Como é projeto autoral, não existe trava de pacote; a limitação vem do tempo, equipe e prioridade interna."]};
+}
+
+
 function emptyLeadForm(){
   return {
     id:null,
@@ -2464,7 +2565,17 @@ function PlanView({client,plan,onRegen,onExportPlan,onExportFinal,onEditClient,o
         <div style={{...ncrd,borderRadius:24}}><div style={{fontSize:10,fontWeight:950,letterSpacing:3,color:C.orange,textTransform:"uppercase",marginBottom:12}}>Linha de comando da equipe</div>{CREATIVE_ASSISTANTS.slice(0,6).map((a,i)=><div key={a.key} style={{padding:"10px 0",borderBottom:i<5?`1px solid ${C.border}`:"none"}}><AgencyMascot assistant={a} active={i===0}/></div>)}</div>
       </div>}
 
-      {tab==="assistants"&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,18rem),1fr))",gap:14}}>{CREATIVE_ASSISTANTS.map((a,i)=><AssistantCard key={a.key} assistant={a} index={i}/>)}</div>}
+      {tab==="assistants"&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,18rem),1fr))",gap:14}}>{CREATIVE_ASSISTANTS.map((a,i)=>{
+        const map={director:"briefing",art:"arts",video:"reels",script:"scripts",social:"social",producer:"production"};
+        const counts={director:"Estratégia do mês",art:`${(enhanced.artIdeas||[]).length} artes geradas`,video:`${(enhanced.reels||[]).length} vídeos gerados`,script:`${(enhanced.scripts||[]).length} roteiros gerados`,social:"Gestão e KPIs",producer:`${(enhanced.production||[]).length} tarefas`};
+        return <div key={a.key} style={{...card,borderRadius:24,padding:18,background:"linear-gradient(145deg,rgba(2,6,23,.96),rgba(8,18,34,.94))",border:"1px solid rgba(0,213,255,.26)",boxShadow:"0 0 30px rgba(0,213,255,.10)",position:"relative",overflow:"hidden"}}>
+          <div style={{position:"absolute",right:-38,top:-38,width:110,height:110,borderRadius:"50%",background:"radial-gradient(circle,rgba(0,213,255,.18),transparent 68%)"}}/>
+          <AgencyMascot assistant={a} active={i===0}/>
+          <p style={{fontSize:12,color:C.dim,lineHeight:1.7,margin:"14px 0 12px",position:"relative"}}>{a.desc}</p>
+          <div style={{fontSize:10,fontWeight:1000,letterSpacing:2,color:C.neon,textTransform:"uppercase",marginBottom:10}}>{counts[a.key]}</div>
+          <button style={{...btn("neon","sm"),background:"rgba(0,213,255,.10)",color:C.neon,border:"1px solid rgba(0,213,255,.45)"}} onClick={()=>setTab(map[a.key]||"briefing")}>Abrir trabalho</button>
+        </div>
+      })}</div>}
 
       {tab==="arts"&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,22rem),1fr))",gap:14}}>{(enhanced.artIdeas||[]).map((art,i)=><div key={i} style={{...card,borderRadius:24,borderLeft:`5px solid ${C.neon}`}}><div style={{fontSize:10,fontWeight:950,letterSpacing:3,color:C.orange,textTransform:"uppercase",marginBottom:6}}>Arte Finalista · {String(i+1).padStart(2,"0")}</div><h3 style={{fontSize:18,fontWeight:1000,margin:"0 0 8px"}}>{art.title}</h3><p style={{fontSize:12,color:C.dim,lineHeight:1.7,margin:"0 0 12px"}}>{art.objective}</p><div style={{display:"grid",gap:8,fontSize:12,color:C.white}}><div><b>Formato:</b> {art.format}</div><div><b>Texto principal:</b> {art.mainText}</div><div><b>Subtexto:</b> {art.subText}</div><div><b>Direção visual:</b> {art.visualDirection}</div><div><b>CTA:</b> {art.cta}</div><div style={{color:C.dim}}><b>Referência:</b> {art.reference}</div></div></div>)}</div>}
 
@@ -2513,30 +2624,78 @@ function PlanningStudioHome({clients,onNew,onOpenLab,onCommercial,onLegal}){
   </div>;
 }
 
-function LabCoralStudio({projects,form,setForm,onSave,onDelete,onBack}){
-  const safeProjects = Array.isArray(projects)?projects:[];
-  return <div className="creative-lab-content" style={{maxWidth:"100%",margin:"0",padding:"clamp(1rem,2vw,2rem)"}}>
-    <div className="studio-brain-panel" style={{...ocrd,borderRadius:30,padding:26,marginBottom:18,background:"radial-gradient(circle at 6% 0%,rgba(0,213,255,.24),transparent 32%),linear-gradient(135deg,rgba(255,255,255,.98),rgba(224,242,254,.90))"}}>
-      <div style={{fontSize:10,fontWeight:1000,letterSpacing:4,color:C.orange,textTransform:"uppercase",marginBottom:8}}>Lab Coral</div>
-      <h1 style={{fontSize:"clamp(2rem,4vw,3.2rem)",fontWeight:1000,letterSpacing:-1.5,margin:"0 0 8px"}}>Projetos autorais da Coral</h1>
-      <p style={{fontSize:13,color:C.dim,lineHeight:1.8,margin:0,maxWidth:820}}>Crie campanhas, séries, portfólio, planos internos, produtos, canais e ideias fora dos clientes. Aqui não há trava de pacote contratado.</p>
-      <button style={{...btn("ghost"),marginTop:16}} onClick={onBack}>← Voltar ao Studio</button>
+function LabProjectPlanPreview({plan}){
+  if(!plan) return null;
+  const assistants = plan.assistants || [];
+  return <div style={{display:"grid",gap:14,marginTop:14}}>
+    <div style={{...ocrd,borderRadius:24,background:"linear-gradient(145deg,rgba(2,6,23,.96),rgba(8,18,34,.94))",border:"1px solid rgba(0,213,255,.28)"}}>
+      <div style={{fontSize:10,fontWeight:1000,letterSpacing:3,color:C.neon,textTransform:"uppercase",marginBottom:10}}>Plano gerado pelos assistentes</div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:12}}>{assistants.map(a=><span key={a.key} style={{padding:"7px 10px",borderRadius:999,border:"1px solid rgba(0,213,255,.32)",background:"rgba(0,213,255,.08)",color:C.neon,fontSize:10,fontWeight:950,letterSpacing:1,textTransform:"uppercase"}}>{a.name}</span>)}</div>
+      {plan.strategy?.objective&&<p style={{fontSize:13,color:"#dbeafe",lineHeight:1.8,margin:0}}>{plan.strategy.objective}</p>}
     </div>
-    <div style={{display:"grid",gridTemplateColumns:"minmax(min(100%,22rem),27rem) minmax(0,1fr)",gap:16,alignItems:"start"}}>
-      <div style={{...ncrd,borderRadius:24}}>
-        <div style={{fontSize:13,fontWeight:1000,marginBottom:14}}>Novo projeto autoral</div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,16rem),1fr))",gap:12}}>
+      <div style={{...card,borderRadius:22,background:"rgba(3,7,18,.88)",border:"1px solid rgba(0,213,255,.22)"}}><div style={{fontSize:10,color:C.neon,fontWeight:1000,letterSpacing:2,textTransform:"uppercase"}}>Arte Finalista</div><strong style={{display:"block",fontSize:24,marginTop:6}}>{(plan.artIdeas||[]).length}</strong><span style={{fontSize:12,color:C.dim}}>ideias de artes</span></div>
+      <div style={{...card,borderRadius:22,background:"rgba(3,7,18,.88)",border:"1px solid rgba(0,213,255,.22)"}}><div style={{fontSize:10,color:C.neon,fontWeight:1000,letterSpacing:2,textTransform:"uppercase"}}>Produtor</div><strong style={{display:"block",fontSize:24,marginTop:6}}>{(plan.reels||[]).length}</strong><span style={{fontSize:12,color:C.dim}}>ideias de vídeos</span></div>
+      <div style={{...card,borderRadius:22,background:"rgba(3,7,18,.88)",border:"1px solid rgba(0,213,255,.22)"}}><div style={{fontSize:10,color:C.neon,fontWeight:1000,letterSpacing:2,textTransform:"uppercase"}}>Roteirista</div><strong style={{display:"block",fontSize:24,marginTop:6}}>{(plan.scripts||[]).length}</strong><span style={{fontSize:12,color:C.dim}}>roteiros</span></div>
+      <div style={{...card,borderRadius:22,background:"rgba(3,7,18,.88)",border:"1px solid rgba(0,213,255,.22)"}}><div style={{fontSize:10,color:C.neon,fontWeight:1000,letterSpacing:2,textTransform:"uppercase"}}>Produção</div><strong style={{display:"block",fontSize:24,marginTop:6}}>{(plan.production||[]).length}</strong><span style={{fontSize:12,color:C.dim}}>tarefas</span></div>
+    </div>
+    {(plan.artIdeas||[]).length>0&&<div style={{...card,borderRadius:24,background:"rgba(3,7,18,.90)",border:"1px solid rgba(0,213,255,.22)"}}><h3 style={{margin:"0 0 12px",fontSize:16}}>🎨 Ideias de artes</h3><div style={{display:"grid",gap:10}}>{plan.artIdeas.slice(0,6).map((x,i)=><div key={i} style={{padding:"10px 0",borderBottom:"1px solid rgba(148,163,184,.18)"}}><b style={{fontSize:13,color:"#fff"}}>{x.title}</b><div style={{fontSize:12,color:C.dim,lineHeight:1.6,marginTop:4}}>{x.mainText} · {x.visualDirection}</div></div>)}</div></div>}
+    {(plan.reels||[]).length>0&&<div style={{...card,borderRadius:24,background:"rgba(3,7,18,.90)",border:"1px solid rgba(0,213,255,.22)"}}><h3 style={{margin:"0 0 12px",fontSize:16}}>🎥 Ideias de vídeos/Reels</h3><div style={{display:"grid",gap:10}}>{plan.reels.slice(0,6).map((x,i)=><div key={i} style={{padding:"10px 0",borderBottom:"1px solid rgba(148,163,184,.18)"}}><b style={{fontSize:13,color:"#fff"}}>{x.title}</b><div style={{fontSize:12,color:C.dim,lineHeight:1.6,marginTop:4}}>{x.objective}</div></div>)}</div></div>}
+    {(plan.production||[]).length>0&&<div style={{...card,borderRadius:24,background:"rgba(3,7,18,.90)",border:"1px solid rgba(0,213,255,.22)",overflowX:"auto"}}><h3 style={{margin:"0 0 12px",fontSize:16}}>🗂️ Produção</h3><table style={{width:"100%",borderCollapse:"collapse",minWidth:560}}><tbody>{plan.production.slice(0,10).map((x,i)=><tr key={i} style={{borderBottom:"1px solid rgba(148,163,184,.16)"}}><td style={{padding:10,fontSize:12,color:"#fff",fontWeight:800}}>{x.task}</td><td style={{padding:10,fontSize:12,color:C.neon}}>{x.area}</td><td style={{padding:10,fontSize:12,color:C.dim}}>{x.due}</td><td style={{padding:10}}><Tag label={x.status||"Ideia"} color={C.neon}/></td></tr>)}</tbody></table></div>}
+  </div>;
+}
+
+function LabCoralStudio({projects,form,setForm,onSave,onDelete,onBack,onGenerate}){
+  const safeProjects = Array.isArray(projects)?projects:[];
+  const selected = form.selectedAssistants || CREATIVE_ASSISTANTS.map(a=>a.key);
+  const toggleAssistant=(key)=>setForm(f=>{
+    const cur=f.selectedAssistants||CREATIVE_ASSISTANTS.map(a=>a.key);
+    const has=cur.includes(key);
+    const next=has?cur.filter(x=>x!==key):[...cur,key];
+    return {...f,selectedAssistants:next.length?next:cur};
+  });
+  const darkPanel={...ocrd,borderRadius:30,padding:26,background:"radial-gradient(circle at 8% 0%,rgba(0,213,255,.18),transparent 35%),linear-gradient(145deg,#020617,#050816 55%,#000)",border:"1px solid rgba(0,213,255,.30)",boxShadow:"0 0 38px rgba(0,213,255,.12)"};
+  const darkCard={...card,background:"linear-gradient(145deg,rgba(2,6,23,.96),rgba(8,18,34,.94))",border:"1px solid rgba(0,213,255,.22)",boxShadow:"0 0 32px rgba(0,213,255,.08)"};
+  const darkInput={...inp,background:"rgba(2,6,23,.96)",border:"1px solid rgba(0,213,255,.24)",color:"#e0f2fe",boxShadow:"inset 0 0 18px rgba(0,213,255,.04)"};
+  return <div className="creative-lab-content" style={{maxWidth:"100%",margin:"0",padding:"clamp(1rem,2vw,2rem)",background:"#000",minHeight:"100vh"}}>
+    <div className="studio-brain-panel" style={{...darkPanel,marginBottom:18}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:14,flexWrap:"wrap"}}>
+        <div>
+          <div style={{fontSize:10,fontWeight:1000,letterSpacing:4,color:C.neon,textTransform:"uppercase",marginBottom:8}}>Lab Coral</div>
+          <h1 style={{fontSize:"clamp(2rem,4vw,3.2rem)",fontWeight:1000,letterSpacing:-1.5,margin:"0 0 8px",color:"#fff",textShadow:"0 0 28px rgba(0,213,255,.26)"}}>Laboratório de projetos autorais</h1>
+          <p style={{fontSize:13,color:"#93a4b8",lineHeight:1.8,margin:0,maxWidth:900}}>Aqui você escolhe quais assistentes vão trabalhar no projeto. O sistema gera estratégia, artes, vídeos, roteiros, gestão e produção conforme a equipe selecionada.</p>
+        </div>
+        <button style={{...btn("neon"),background:"rgba(0,213,255,.10)",color:C.neon,border:"1px solid rgba(0,213,255,.48)"}} onClick={onBack}>← Voltar ao Studio</button>
+      </div>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"minmax(min(100%,24rem),30rem) minmax(0,1fr)",gap:16,alignItems:"start"}}>
+      <div style={{...darkCard,borderRadius:24}}>
+        <div style={{fontSize:13,fontWeight:1000,marginBottom:14,color:"#fff"}}>Novo projeto autoral</div>
         <div style={{display:"grid",gap:10}}>
-          <div><label style={lbl}>Nome do projeto</label><input style={inp} value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="Ex: Série Reels para captar clientes"/></div>
-          <div><label style={lbl}>Tipo</label><select style={inp} value={form.type} onChange={e=>setForm(f=>({...f,type:e.target.value}))}><option>Campanha própria</option><option>Série de Reels</option><option>Portfólio</option><option>Produto digital</option><option>Canal/Conteúdo</option><option>Plano interno</option></select></div>
-          <div><label style={lbl}>Objetivo</label><textarea style={{...inp,height:82,resize:"vertical"}} value={form.objective} onChange={e=>setForm(f=>({...f,objective:e.target.value}))}/></div>
-          <div><label style={lbl}>Formatos previstos</label><input style={inp} value={form.formats} onChange={e=>setForm(f=>({...f,formats:e.target.value}))} placeholder="Ex: 10 Reels, 3 artes, 1 vídeo institucional"/></div>
-          <div><label style={lbl}>Observações</label><textarea style={{...inp,height:82,resize:"vertical"}} value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))}/></div>
-          <button style={btn("primary")} onClick={onSave}>Salvar Projeto</button>
+          <div><label style={lbl}>Nome do projeto *</label><input style={darkInput} value={form.title||""} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="Ex: Série Reels para captar clientes"/></div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><div><label style={lbl}>Tipo</label><select style={darkInput} value={form.type||"Campanha própria"} onChange={e=>setForm(f=>({...f,type:e.target.value}))}><option>Campanha própria</option><option>Série de Reels</option><option>Portfólio</option><option>Produto digital</option><option>Canal/Conteúdo</option><option>Plano interno</option></select></div><div><label style={lbl}>Nicho/tema</label><input style={darkInput} value={form.niche||""} onChange={e=>setForm(f=>({...f,niche:e.target.value}))} placeholder="Ex: Coral Films, imobiliária, barbearia"/></div></div>
+          <div><label style={lbl}>Objetivo estratégico</label><textarea style={{...darkInput,height:88,resize:"vertical"}} value={form.objective||""} onChange={e=>setForm(f=>({...f,objective:e.target.value}))} placeholder="O que esse projeto precisa gerar? Leads, portfólio, autoridade, campanha, produto?"/></div>
+          <div><label style={lbl}>Público-alvo</label><input style={darkInput} value={form.audience||""} onChange={e=>setForm(f=>({...f,audience:e.target.value}))} placeholder="Para quem esse projeto será criado?"/></div>
+          <div><label style={lbl}>Posicionamento / promessa</label><input style={darkInput} value={form.positioning||""} onChange={e=>setForm(f=>({...f,positioning:e.target.value}))} placeholder="Ex: mostrar que a Coral cria conteúdo que vende"/></div>
+          <div><label style={lbl}>Oferta ou CTA</label><input style={darkInput} value={form.offer||""} onChange={e=>setForm(f=>({...f,offer:e.target.value}))} placeholder="Ex: chamar no WhatsApp, pedir orçamento, baixar material"/></div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><div><label style={lbl}>Formatos previstos</label><input style={darkInput} value={form.formats||""} onChange={e=>setForm(f=>({...f,formats:e.target.value}))} placeholder="Ex: 10 Reels, 6 artes, 4 stories"/></div><div><label style={lbl}>Prazo/meta</label><input style={darkInput} value={form.deadline||""} onChange={e=>setForm(f=>({...f,deadline:e.target.value}))} placeholder="Ex: 30 dias"/></div></div>
+          <div><label style={lbl}>Canais</label><input style={darkInput} value={form.channels||""} onChange={e=>setForm(f=>({...f,channels:e.target.value}))} placeholder="Instagram, YouTube, TikTok, WhatsApp, portfólio"/></div>
+          <div><label style={lbl}>Tom de voz / estilo</label><input style={darkInput} value={form.tone||""} onChange={e=>setForm(f=>({...f,tone:e.target.value}))} placeholder="Premium, tecnológico, direto, popular, institucional..."/></div>
+          <div><label style={lbl}>Referências</label><textarea style={{...darkInput,height:74,resize:"vertical"}} value={form.references||""} onChange={e=>setForm(f=>({...f,references:e.target.value}))} placeholder="Links do Pinterest, Instagram, Behance, Drive ou descrição visual"/></div>
+          <div><label style={lbl}>Observações</label><textarea style={{...darkInput,height:74,resize:"vertical"}} value={form.notes||""} onChange={e=>setForm(f=>({...f,notes:e.target.value}))}/></div>
+          <div style={{display:"flex",gap:10,flexWrap:"wrap"}}><button style={btn("neon")} onClick={onGenerate}>⚡ Gerar plano autoral</button><button style={btn("primary")} onClick={onSave}>Salvar Projeto</button></div>
         </div>
       </div>
-      <div style={{display:"grid",gap:12}}>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,13rem),1fr))",gap:12}}>{CREATIVE_ASSISTANTS.map((a,i)=><AssistantCard key={a.key} assistant={a} index={i}/>)}</div>
-        {safeProjects.length===0?<div style={{...card,textAlign:"center",padding:42,borderRadius:24,color:C.dim}}>Nenhum projeto autoral salvo ainda.</div>:<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,20rem),1fr))",gap:12}}>{safeProjects.map(p=><div key={p.id} style={{...card,borderRadius:24}}><div style={{fontSize:10,fontWeight:950,letterSpacing:3,color:C.orange,textTransform:"uppercase",marginBottom:6}}>{p.type}</div><h3 style={{fontSize:18,fontWeight:1000,margin:"0 0 8px"}}>{p.title}</h3><p style={{fontSize:12,color:C.dim,lineHeight:1.7}}>{p.objective}</p><div style={{fontSize:12,color:C.neon,fontWeight:900,marginBottom:10}}>{p.formats}</div><p style={{fontSize:12,color:C.dim,lineHeight:1.6}}>{p.notes}</p><button style={btn("danger","sm")} onClick={()=>onDelete(p.id)}>Excluir</button></div>)}</div>}
+      <div style={{display:"grid",gap:14}}>
+        <div style={{...darkCard,borderRadius:24}}>
+          <div style={{fontSize:10,fontWeight:1000,letterSpacing:3,color:C.neon,textTransform:"uppercase",marginBottom:12}}>Escolha os assistentes do projeto</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,15rem),1fr))",gap:12}}>{CREATIVE_ASSISTANTS.map((a,i)=>{
+            const active=selected.includes(a.key);
+            return <button key={a.key} onClick={()=>toggleAssistant(a.key)} style={{textAlign:"left",cursor:"pointer",borderRadius:22,padding:16,border:active?"1px solid rgba(0,213,255,.62)":"1px solid rgba(148,163,184,.20)",background:active?"radial-gradient(circle at 10% 0%,rgba(0,213,255,.22),transparent 38%),rgba(2,6,23,.96)":"rgba(2,6,23,.72)",boxShadow:active?"0 0 28px rgba(0,213,255,.16)":"none",color:"#fff"}}><AgencyMascot assistant={a} active={active}/><p style={{fontSize:12,color:C.dim,lineHeight:1.6,margin:"12px 0 0"}}>{a.desc}</p><div style={{fontSize:10,fontWeight:1000,letterSpacing:2,textTransform:"uppercase",color:active?C.neon:C.dim,marginTop:10}}>{active?"Selecionado":"Clique para ativar"}</div></button>
+          })}</div>
+        </div>
+        <LabProjectPlanPreview plan={form.generatedPlan}/>
+        {safeProjects.length===0?<div style={{...darkCard,textAlign:"center",padding:42,borderRadius:24,color:C.dim}}>Nenhum projeto autoral salvo ainda.</div>:<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,22rem),1fr))",gap:12}}>{safeProjects.map(p=><div key={p.id} style={{...darkCard,borderRadius:24}}><div style={{fontSize:10,fontWeight:950,letterSpacing:3,color:C.neon,textTransform:"uppercase",marginBottom:6}}>{p.type}</div><h3 style={{fontSize:18,fontWeight:1000,margin:"0 0 8px",color:"#fff"}}>{p.title}</h3><p style={{fontSize:12,color:C.dim,lineHeight:1.7}}>{p.objective}</p><div style={{fontSize:12,color:C.neon,fontWeight:900,marginBottom:10}}>{p.formats}</div>{p.generatedPlan&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>{(p.generatedPlan.assistants||[]).map(a=><span key={a.key} style={{fontSize:9,fontWeight:950,letterSpacing:1,textTransform:"uppercase",color:C.neon,border:"1px solid rgba(0,213,255,.28)",borderRadius:999,padding:"5px 8px"}}>{a.name}</span>)}</div>}<p style={{fontSize:12,color:C.dim,lineHeight:1.6}}>{p.notes}</p>{p.generatedPlan&&<details style={{margin:"10px 0",fontSize:12,color:C.dim}}><summary style={{cursor:"pointer",color:C.neon,fontWeight:900}}>Ver plano gerado</summary><LabProjectPlanPreview plan={p.generatedPlan}/></details>}<button style={btn("danger","sm")} onClick={()=>onDelete(p.id)}>Excluir</button></div>)}</div>}
       </div>
     </div>
   </div>;
@@ -3196,7 +3355,8 @@ function CoralFilmsApp(){
   const [legalLoading,setLegalLoading] = useState(true);
   const [financeClient,setFinanceClient] = useState(null);
   const [authorialProjects,setAuthorialProjects] = useState([]);
-  const [authorialForm,setAuthorialForm] = useState({title:"",type:"Campanha própria",objective:"",formats:"",notes:""});
+  const emptyAuthorialForm = () => ({title:"",type:"Campanha própria",niche:"",objective:"",audience:"",positioning:"",offer:"",formats:"",deadline:"",channels:"",tone:"",references:"",notes:"",selectedAssistants:CREATIVE_ASSISTANTS.map(a=>a.key),generatedPlan:null});
+  const [authorialForm,setAuthorialForm] = useState(emptyAuthorialForm());
   const fileRef             = useRef(null);
   const finalFileRef        = useRef(null);
 
@@ -3219,14 +3379,22 @@ function CoralFilmsApp(){
     setAuthorialProjects(Array.isArray(data) ? data : []);
   }
 
+  function gerarProjetoAutoral(){
+    if(!authorialForm.title.trim()) return alert("Nome do projeto é obrigatório para gerar o plano.");
+    const generatedPlan = buildAuthorialProjectPlan(authorialForm);
+    setAuthorialForm(f=>({...f,generatedPlan}));
+    showFeedback("Plano autoral gerado pelos assistentes selecionados.","success");
+  }
+
   async function salvarProjetoAutoral(){
     if(!authorialForm.title.trim()) return alert("Nome do projeto é obrigatório.");
-    const project = {...authorialForm,id:newLocalId(),createdAt:new Date().toISOString(),status:"Ideia"};
+    const generatedPlan = authorialForm.generatedPlan || buildAuthorialProjectPlan(authorialForm);
+    const project = {...authorialForm,generatedPlan,id:newLocalId(),createdAt:new Date().toISOString(),status:"Ideia"};
     const next = [project,...authorialProjects];
     setAuthorialProjects(next);
     await dbSet(AUTHORIAL_STORAGE_KEY,next);
-    setAuthorialForm({title:"",type:"Campanha própria",objective:"",formats:"",notes:""});
-    showFeedback("Projeto autoral salvo no Lab Coral.","success");
+    setAuthorialForm(emptyAuthorialForm());
+    showFeedback("Projeto autoral salvo com plano e assistentes.","success");
   }
 
   async function excluirProjetoAutoral(id){
@@ -3458,7 +3626,26 @@ Mantenha exatamente as chaves abaixo para não quebrar a tela do app.
       setScreen("plan");
     }catch(e){
       clearInterval(iv);
-      setGenErr(e.message||"Não foi possível gerar o plano agora. Tente novamente em alguns instantes.");
+      try{
+        setGenPct(100);
+        const parsed = enforcePlanAgainstPackage(buildLocalClientPlan(client, commercialPackage), commercialPackage, client);
+        const planRecord = {id:`plan-${Date.now()}`,createdAt:new Date().toISOString(),month:client.month,year:client.year,plan:parsed};
+        let updatedClient = {...client,lastPlan:parsed,lastPlanId:planRecord.id,plans:[...(client.plans||[]),planRecord]};
+        const cloud = await salvarPlanoSupabase(updatedClient, parsed);
+        if(cloud?.ok && cloud.id){
+          updatedClient = {...updatedClient,id:String(cloud.id),supabaseId:cloud.id,importedFromSupabase:true};
+        }
+        const updatedList = clients.some(x=>String(x.id)===String(client.id))
+          ? clients.map(x=>String(x.id)===String(client.id)?updatedClient:x)
+          : [...clients,updatedClient];
+        await persist(updatedList);
+        showFeedback("A IA externa não respondeu, então o Studio gerou um plano interno completo pelos assistentes.","success");
+        setActive(updatedClient);
+        setPlan(parsed);
+        setScreen("plan");
+      }catch(localErr){
+        setGenErr((e.message||"Não foi possível gerar o plano agora.")+" | Fallback interno: "+(localErr.message||localErr));
+      }
     }
   };
 
@@ -4551,6 +4738,7 @@ ${commercialScopeText}`:""}`,
           onSave={salvarProjetoAutoral}
           onDelete={excluirProjetoAutoral}
           onBack={()=>setScreen("list")}
+          onGenerate={gerarProjetoAutoral}
         />
       )}
 
