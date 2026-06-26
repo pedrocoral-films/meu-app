@@ -2359,7 +2359,7 @@ function AssistantCard({assistant,index}){
 
 function CreativeStudioHero({client,plan,onRegen,onExportPlan,onExportFinal,onEditClient}){
   const month=MONTHS[(client.month||1)-1];
-  return <div style={{...ocrd,marginBottom:18,borderRadius:28,padding:24,background:"radial-gradient(circle at 8% 0%,rgba(0,213,255,.26),transparent 32%),radial-gradient(circle at 92% 15%,rgba(14,165,255,.18),transparent 26%),linear-gradient(135deg,rgba(255,255,255,.98),rgba(224,242,254,.90))",position:"relative",overflow:"hidden"}}>
+  return <div className="studio-brain-panel" style={{...ocrd,marginBottom:18,borderRadius:28,padding:24,background:"radial-gradient(circle at 8% 0%,rgba(0,213,255,.26),transparent 32%),radial-gradient(circle at 92% 15%,rgba(14,165,255,.18),transparent 26%),linear-gradient(135deg,rgba(255,255,255,.98),rgba(224,242,254,.90))",position:"relative",overflow:"hidden"}}>
     <div style={{position:"absolute",left:-50,bottom:-70,width:260,height:180,borderRadius:"50%",border:"1px solid rgba(0,213,255,.20)",transform:"rotate(-14deg)"}}/>
     <div style={{position:"absolute",right:18,bottom:16,fontSize:96,opacity:.08}}>🐍</div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:18,position:"relative"}}>
@@ -2461,7 +2461,7 @@ function PlanningStudioHome({clients,onNew,onOpenLab,onCommercial,onLegal}){
     ["Modo Autoral","Lab Coral","💎"]
   ];
   return <div style={{marginBottom:24}}>
-    <div style={{...ocrd,borderRadius:30,padding:26,background:"radial-gradient(circle at 6% 0%,rgba(0,213,255,.26),transparent 34%),linear-gradient(135deg,rgba(255,255,255,.98),rgba(224,242,254,.88))",position:"relative",overflow:"hidden"}}>
+    <div className="studio-brain-panel" style={{...ocrd,borderRadius:30,padding:26,background:"radial-gradient(circle at 6% 0%,rgba(0,213,255,.26),transparent 34%),linear-gradient(135deg,rgba(255,255,255,.98),rgba(224,242,254,.88))",position:"relative",overflow:"hidden"}}>
       <div style={{position:"absolute",right:22,bottom:8,fontSize:112,opacity:.08}}>🐍</div>
       <div style={{fontSize:10,fontWeight:1000,letterSpacing:4,color:C.orange,textTransform:"uppercase",marginBottom:8}}>Coral Creative Studio</div>
       <h1 style={{fontSize:"clamp(2rem,4vw,3.6rem)",fontWeight:1000,letterSpacing:-1.8,margin:"0 0 10px",lineHeight:1.03}}>Agência + Produtora dentro do planejamento</h1>
@@ -2480,7 +2480,7 @@ function PlanningStudioHome({clients,onNew,onOpenLab,onCommercial,onLegal}){
 function LabCoralStudio({projects,form,setForm,onSave,onDelete,onBack}){
   const safeProjects = Array.isArray(projects)?projects:[];
   return <div style={{maxWidth:"100%",margin:"0",padding:"clamp(1rem,2vw,2rem)"}}>
-    <div style={{...ocrd,borderRadius:30,padding:26,marginBottom:18,background:"radial-gradient(circle at 6% 0%,rgba(0,213,255,.24),transparent 32%),linear-gradient(135deg,rgba(255,255,255,.98),rgba(224,242,254,.90))"}}>
+    <div className="studio-brain-panel" style={{...ocrd,borderRadius:30,padding:26,marginBottom:18,background:"radial-gradient(circle at 6% 0%,rgba(0,213,255,.24),transparent 32%),linear-gradient(135deg,rgba(255,255,255,.98),rgba(224,242,254,.90))"}}>
       <div style={{fontSize:10,fontWeight:1000,letterSpacing:4,color:C.orange,textTransform:"uppercase",marginBottom:8}}>Lab Coral</div>
       <h1 style={{fontSize:"clamp(2rem,4vw,3.2rem)",fontWeight:1000,letterSpacing:-1.5,margin:"0 0 8px"}}>Projetos autorais da Coral</h1>
       <p style={{fontSize:13,color:C.dim,lineHeight:1.8,margin:0,maxWidth:820}}>Crie campanhas, séries, portfólio, planos internos, produtos, canais e ideias fora dos clientes. Aqui não há trava de pacote contratado.</p>
@@ -4027,7 +4027,7 @@ ${commercialScopeText}`:""}`,
   const wrap={width:"100%",maxWidth:"100%",margin:"0",padding:"clamp(1rem,2vw,2rem)"};
 
   return(
-    <div className="app-shell">
+    <div className={`app-shell ${["list","plan","lab-coral","generating"].includes(screen) ? "creative-brain-mode" : ""}`}>
       <style>{`
         @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
         @keyframes spin{to{transform:rotate(360deg)}}
@@ -4057,6 +4057,103 @@ ${commercialScopeText}`:""}`,
           linear-gradient(180deg,#f8fbff 0%,#eef5fb 52%,#f7fbff 100%);
           color:${C.white};font-family:'Inter','Helvetica Neue',Arial,sans-serif;animation:fadeIn .55s ease-out}
         .app-shell::before{content:"";position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(rgba(14,165,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(14,165,255,.035) 1px,transparent 1px);background-size:44px 44px;mask-image:linear-gradient(to bottom,rgba(0,0,0,.48),transparent 82%);}
+
+        /* ── Coral Creative Studio: modo cérebro da empresa ── */
+        .creative-brain-mode{
+          background:
+            radial-gradient(circle at 18% 12%,rgba(0,213,255,.24),transparent 28%),
+            radial-gradient(circle at 82% 8%,rgba(77,109,255,.18),transparent 30%),
+            radial-gradient(circle at 50% 100%,rgba(0,213,255,.12),transparent 36%),
+            linear-gradient(145deg,#02040a 0%,#050814 42%,#02030a 100%)!important;
+          color:#eafcff!important;
+          overflow-x:hidden;
+        }
+        .creative-brain-mode::before{
+          content:""!important;position:fixed!important;inset:0!important;pointer-events:none!important;
+          background-image:
+            linear-gradient(rgba(0,213,255,.070) 1px,transparent 1px),
+            linear-gradient(90deg,rgba(0,213,255,.052) 1px,transparent 1px),
+            radial-gradient(circle at 50% 18%,rgba(0,213,255,.12),transparent 28%)!important;
+          background-size:34px 34px,34px 34px,100% 100%!important;
+          mask-image:linear-gradient(to bottom,rgba(0,0,0,.98),rgba(0,0,0,.58) 58%,transparent 96%)!important;
+        }
+        .creative-brain-mode::after{
+          content:"";position:fixed;left:-20vw;right:-20vw;top:78px;height:140px;pointer-events:none;z-index:0;opacity:.72;
+          background:
+            radial-gradient(ellipse at center,rgba(0,213,255,.22),transparent 58%),
+            linear-gradient(90deg,transparent,rgba(0,213,255,.06),rgba(72,136,255,.16),rgba(0,213,255,.06),transparent);
+          filter:blur(1px);transform:skewY(-4deg);
+        }
+        .creative-brain-mode > *{position:relative;z-index:1}
+        .creative-brain-mode .app-header{
+          background:linear-gradient(135deg,rgba(3,8,20,.92),rgba(4,19,39,.82))!important;
+          border-bottom:1px solid rgba(0,213,255,.32)!important;
+          box-shadow:0 18px 60px rgba(0,0,0,.52),0 0 38px rgba(0,213,255,.16)!important;
+        }
+        .creative-brain-mode .header-logo{background:linear-gradient(135deg,rgba(0,213,255,.16),rgba(4,12,28,.92))!important;border-color:rgba(0,213,255,.42)!important;box-shadow:0 0 28px rgba(0,213,255,.22)!important}
+        .creative-brain-mode .header-brand strong,.creative-brain-mode .header-brand span{color:#eafcff!important;text-shadow:0 0 14px rgba(0,213,255,.26)!important}
+        .creative-brain-mode .sector-snake-transition{filter:drop-shadow(0 0 24px rgba(0,213,255,.80))!important}
+
+        .creative-brain-mode h1,.creative-brain-mode h2,.creative-brain-mode h3,.creative-brain-mode strong,.creative-brain-mode b{color:#f4fbff!important;text-shadow:0 0 16px rgba(0,213,255,.16)!important}
+        .creative-brain-mode p,.creative-brain-mode span,.creative-brain-mode small,.creative-brain-mode label,.creative-brain-mode th,.creative-brain-mode td{color:#9fb8c8!important}
+        .creative-brain-mode a{color:#66eaff!important;text-shadow:0 0 12px rgba(0,213,255,.25)!important}
+
+        .creative-brain-mode div[style*="background"],
+        .creative-brain-mode article[style*="background"],
+        .creative-brain-mode .client-card,
+        .creative-brain-mode .coral-calendar-modal{
+          background:
+            linear-gradient(145deg,rgba(8,14,28,.94),rgba(3,8,18,.88))!important;
+          border-color:rgba(0,213,255,.24)!important;
+          box-shadow:0 22px 72px rgba(0,0,0,.42),0 0 28px rgba(0,213,255,.10),inset 0 1px 0 rgba(255,255,255,.055)!important;
+          color:#eafcff!important;
+        }
+        .creative-brain-mode div[style*="radial-gradient"],
+        .creative-brain-mode div[style*="linear-gradient(135deg"]{
+          background:
+            radial-gradient(circle at 10% 0%,rgba(0,213,255,.20),transparent 30%),
+            radial-gradient(circle at 92% 12%,rgba(77,109,255,.18),transparent 30%),
+            linear-gradient(145deg,rgba(9,16,34,.96),rgba(2,6,15,.92))!important;
+          border-color:rgba(0,213,255,.30)!important;
+        }
+        .creative-brain-mode .client-card::before{background:linear-gradient(90deg,#00d5ff,#4d6dff,transparent)!important;box-shadow:0 0 24px rgba(0,213,255,.72)!important}
+        .creative-brain-mode .client-card-glow{background:radial-gradient(circle,rgba(0,213,255,.18),transparent 64%)!important}
+        .creative-brain-mode .client-instagram,.creative-brain-mode .client-meta-row span,.creative-brain-mode .client-date{
+          background:rgba(0,213,255,.075)!important;border-color:rgba(0,213,255,.24)!important;color:#b9f8ff!important;
+        }
+        .creative-brain-mode .client-divider{background:linear-gradient(90deg,transparent,rgba(0,213,255,.28),transparent)!important}
+
+        .creative-brain-mode button,
+        .creative-brain-mode .btn-new-client,
+        .creative-brain-mode .btn-generate,
+        .creative-brain-mode .btn-glass,
+        .creative-brain-mode .btn-icon{
+          background:linear-gradient(135deg,rgba(0,213,255,.18),rgba(4,15,33,.92))!important;
+          border:1px solid rgba(0,213,255,.34)!important;
+          color:#eafcff!important;
+          box-shadow:0 0 24px rgba(0,213,255,.16),inset 0 1px 0 rgba(255,255,255,.08)!important;
+          text-shadow:0 0 12px rgba(0,213,255,.25)!important;
+        }
+        .creative-brain-mode button:hover,
+        .creative-brain-mode .btn-generate:hover,
+        .creative-brain-mode .btn-new-client:hover,
+        .creative-brain-mode .btn-icon:hover{
+          border-color:rgba(0,213,255,.72)!important;
+          box-shadow:0 0 34px rgba(0,213,255,.32),0 0 18px rgba(77,109,255,.18),inset 0 1px 0 rgba(255,255,255,.14)!important;
+        }
+        .creative-brain-mode input,.creative-brain-mode select,.creative-brain-mode textarea{
+          background:rgba(2,8,18,.82)!important;
+          color:#eafcff!important;
+          border-color:rgba(0,213,255,.28)!important;
+          box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 0 20px rgba(0,213,255,.05)!important;
+        }
+        .creative-brain-mode input::placeholder,.creative-brain-mode textarea::placeholder{color:#5b7b90!important}
+        .creative-brain-mode footer{color:#6f8ea1!important;border-top:1px solid rgba(0,213,255,.10)!important}
+
+        .creative-brain-mode .studio-brain-panel{position:relative;overflow:hidden}
+        .creative-brain-mode .studio-brain-panel::before{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(110deg,transparent,rgba(0,213,255,.10),transparent);transform:translateX(-110%);animation:brainScan 6s ease-in-out infinite}
+        @keyframes brainScan{0%,42%{transform:translateX(-110%);opacity:0}50%{opacity:.9}72%,100%{transform:translateX(110%);opacity:0}}
+
 
         .app-header{position:sticky;top:0;z-index:100;height:68px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;background:linear-gradient(135deg,rgba(255,255,255,.86),rgba(232,244,255,.72));backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid rgba(0,213,255,.22);box-shadow:0 14px 45px rgba(37,74,116,.12),0 0 28px rgba(0,213,255,.08)}
         .app-header::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:linear-gradient(90deg,transparent,${C.orange},${C.neon},transparent);box-shadow:0 0 18px rgba(0,213,255,.65)}
